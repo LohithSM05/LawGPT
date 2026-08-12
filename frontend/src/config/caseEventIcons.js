@@ -1,7 +1,7 @@
 import {
   FolderPlus, Pencil, ArrowRightLeft, Archive, RotateCcw, Trash2, RotateCw,
   Pin, PinOff, Users, StickyNote, Gavel, CheckCircle2, PauseCircle,
-  Clock3, XCircle, CalendarClock, UserX, CalendarPlus,
+  Clock3, XCircle, CalendarClock, UserX, CalendarPlus, FileUp, FileX,
 } from 'lucide-react';
 
 /** Falls back to Gavel for any event type not explicitly mapped. */
@@ -21,6 +21,8 @@ export const EVENT_ICON = {
   NOTE_ADDED: StickyNote,
   NOTE_UPDATED: StickyNote,
   NOTE_DELETED: StickyNote,
+  DOCUMENT_UPLOADED: FileUp,
+  DOCUMENT_DELETED: FileX,
   HEARING_CREATED: Gavel,
   HEARING_UPDATED: Gavel,
   HEARING_COMPLETED: CheckCircle2,

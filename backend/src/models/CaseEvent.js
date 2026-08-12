@@ -5,9 +5,11 @@ const mongoose = require('mongoose');
  * for lifecycle actions that already exist in this module (party/note
  * edits, pin, case update, soft-delete) — logging those consistently is
  * what makes "what changed and when" actually answerable later, which is
- * the whole point of this model. Deliberately NOT adding placeholder types
- * for subsystems that don't exist yet (DOCUMENT_ADDED, EVIDENCE_ADDED,
- * AI_ANALYSIS_CREATED, etc.) — those get added when their module lands.
+ * the whole point of this model. DOCUMENT_UPLOADED / DOCUMENT_DELETED were
+ * added with Module 4 Phase 1 (document upload pipeline foundation).
+ * Deliberately NOT adding placeholder types for subsystems that don't exist
+ * yet (EVIDENCE_ADDED, WITNESS_ADDED, AI_ANALYSIS_CREATED, etc.) — those
+ * get added when their module lands.
  */
 const EVENT_TYPES = [
   'CASE_CREATED',
@@ -25,6 +27,8 @@ const EVENT_TYPES = [
   'NOTE_ADDED',
   'NOTE_UPDATED',
   'NOTE_DELETED',
+  'DOCUMENT_UPLOADED',
+  'DOCUMENT_DELETED',
   'HEARING_CREATED',
   'HEARING_UPDATED',
   'HEARING_COMPLETED',

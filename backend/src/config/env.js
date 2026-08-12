@@ -1,4 +1,5 @@
 const dotenv = require('dotenv');
+const path = require('path');
 dotenv.config();
 
 const required = ['MONGO_URI', 'JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'];
@@ -21,6 +22,9 @@ const env = {
   mongoUri: process.env.MONGO_URI || 'mongodb://localhost:27017/lawgpt',
   clientUrl: process.env.CLIENT_URL || 'http://localhost:5173',
   pythonAiServiceUrl: process.env.PYTHON_AI_SERVICE_URL || 'http://localhost:8000',
+  // Root directory for uploaded case documents (Module 4). Defaults to
+  // <repo>/backend/uploads. Gitignored — uploaded files are never committed.
+  uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads'),
 
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',

@@ -4,6 +4,7 @@ const ApiResponse = require('../utils/ApiResponse');
 const Case = require('../models/Case');
 const Hearing = require('../models/Hearing');
 const CaseEvent = require('../models/CaseEvent');
+const Document = require('../models/Document');
 const { logCaseEvent } = require('../services/caseEventService');
 
 function escapeRegex(str) {
@@ -105,9 +106,12 @@ const listCases = asyncHandler(async (req, res) => {
 const getCase = asyncHandler(async (req, res) => {
   const caseDoc = req.case;
 
-  const [hearingCount, lastHearing] = await Promise.all([
+  const [hearingCount, lastHearing, documentCount] = await Promise.all([
     Hearing.countDocuments({ caseId: caseDoc._id, isDeleted: { $ne: true } }),
     Hearing.findOne({ caseId: caseDoc._id, isDeleted: { $ne: true } }).sort('-updatedAt'),
+    // Real count from the Document collection (Module 4 Phase 1) — only
+    // non-deleted documents count toward a case.
+    Document.countDocuments({ caseId: caseDoc._id, isDeleted: { $ne: true } }),
   ]);
 
   const lastActivity = [caseDoc.updatedAt, lastHearing?.updatedAt]
@@ -118,9 +122,9 @@ const getCase = asyncHandler(async (req, res) => {
     case: caseDoc,
     stats: {
       hearingCount,
-      // Document/evidence pipeline lands in Module 4 — these are real
-      // zeros, not placeholders, until that model exists.
-      documentCount: 0,
+      documentCount,
+      // Evidence model is not implemented yet (Module 4 Phase 2+ / later) —
+      // this is a real zero, not a placeholder.
       evidenceCount: 0,
       lastActivity,
     },

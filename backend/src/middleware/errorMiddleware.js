@@ -22,6 +22,16 @@ function errorHandler(err, req, res, _next) {
   } else if (err.name === 'CastError') {
     statusCode = 400;
     message = `Invalid value for ${err.path}`;
+  } else if (err.name === 'MulterError') {
+    // File upload errors from the Module 4 multer pipeline (oversized file,
+    // too many files, wrong field name) map to clean 400s instead of 500s.
+    statusCode = 400;
+    const codeMessages = {
+      LIMIT_FILE_SIZE: 'File too large',
+      LIMIT_FILE_COUNT: 'Too many files in a single request',
+      LIMIT_UNEXPECTED_FILE: 'Unexpected file field',
+    };
+    message = codeMessages[err.code] || `File upload failed: ${err.code}`;
   }
 
   statusCode = statusCode || 500;

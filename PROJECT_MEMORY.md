@@ -24,7 +24,7 @@ AI service — see `docs/ARCHITECTURE.md` for the full breakdown and data flow.
 - [x] Module 2 — Authentication (backend complete; frontend complete, retrofitted for the new IA)
 - [x] Architecture update — sidebar/topbar shell, i18n, IA restructuring
 - [x] **Module 3 — Case Management + Smart Case Folder + Hearing Management**
-- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **next**
+- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **Phase 1 (backend foundation) DONE: Document model, nested routes, disk upload, list/detail/soft-delete/download, real documentCount, DOCUMENT_* CaseEvents. Phase 2+ pending: OCR → extraction → chunking → embeddings → vector store, frontend Documents tab/upload UI.**
 - [ ] Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — also backs the BNS / BNSS / BSA sidebar pages
 - [ ] Module 6 — Similar judgments (RAG) — also backs Judge Research, Constitution, Supreme/High Court, Judgment Search, Case Comparison, Legal Dictionary
 - [ ] Module 7 — Arguments + evidence scoring — also backs Evidence Analyzer
@@ -172,7 +172,7 @@ still-"scheduled" hearing correctly stops counting toward
 `Case.nextHearingDate`.
 
 **`CaseEvent`** (`backend/src/models/CaseEvent.js`) is an append-only log —
-25 event types spanning case/party/note/hearing lifecycle,
+27 event types spanning case/party/note/hearing/document lifecycle,
 `{ createdAt: true, updatedAt: false }` (events are never edited, only
 created). `GET /cases/:id/timeline` reads this collection directly
 (`CaseEvent.find({ caseId }).sort('createdAt')`) rather than deriving events
@@ -228,6 +228,57 @@ upload pipeline first. The spec explicitly allows this split.
 
 See `docs/MODULE3_CASES.md` for the full API reference and testing checklist.
 
+## Document Management (Module 4, Phase 1)
+
+**Model**: `Document` (`backend/src/models/Document.js`) is a separate
+collection, many-per-case via `caseId`. `docType` is free-text (FIR,
+complaint, statement, chargesheet, court document, …) — not an enum, same
+pattern as `Case.caseType`. `status` is `pending`/`processing`/`completed`/
+`failed`; Phase 1 only ever sets `pending` (the rest are driven by the Phase 2
+OCR/chunking pipeline).
+
+**Server-side internals stay off the wire.** `storagePath` is a
+server-generated relative path (`<caseId>/<randomName>`) that is never
+derived from user input (so no traversal) and is excluded from all JSON
+responses — `select: false` at the query level plus a `toJSON` transform so
+the create response hides it too. `extractedText` is likewise `select: false`
+so a populated text blob can't bloat list/detail payloads. `downloadDocument`
+is the only code path that re-selects `storagePath`, resolves it inside the
+uploads root, bounds-checks it, and streams it via `res.download`.
+
+**Routes** (`documentRoutes.js`, mounted at
+`/api/cases/:caseId/documents`): `POST` (multi-file, multer disk storage,
+field `documents` + optional `docType` applying to all files), `GET` (list,
+excludes soft-deleted, sorted `-createdAt`), `GET /:documentId`,
+`DELETE /:documentId` (soft delete), `GET /:documentId/download`. Every route
+runs `protect → loadCase → requireCaseAccess` — identical to Hearings; there
+is no flat `/documents` route. Access = case creator / `assignedUsers` / admin
+only. Uploads land in gitignored `uploads/<caseId>/` (`UPLOADS_DIR` env,
+default `<repo>/backend/uploads`); dirs created on demand. Allowed formats:
+PDF, PNG, JPG/JPEG, DOCX, TXT (extension must be known AND declared MIME must
+match or be `application/octet-stream`/empty); 25 MB/file, 10 files/request.
+Multer errors (`LIMIT_FILE_SIZE` etc.) map to clean `400`s via a new
+`MulterError` branch in `errorMiddleware.js` — no second error-handling
+pattern.
+
+**Soft-delete asymmetry with Hearings, intentionally**: a deleted document is
+`404` on detail AND download (nothing links to a deleted document, and
+download must refuse it). This differs from Hearings, which stay fetchable by
+ID because `previousHearingId`/Timeline links point at them. The physical file
+is kept on disk (permanent removal deferred to a later phase / cleanup job).
+
+**Events**: `DOCUMENT_UPLOADED` (one per file, `metadata: { documentId,
+fileName, size }`) and `DOCUMENT_DELETED` added to `CaseEvent` (now 27 types).
+Frontend `config/caseEventIcons.js` maps them to `FileUp`/`FileX` — the only
+frontend change in this phase.
+
+**`GET /cases/:id` stats**: `documentCount` is now counted from the real
+`Document` collection (`{ caseId, isDeleted: { $ne: true } }`); `evidenceCount`
+remains `0` (Evidence not implemented).
+
+See `docs/MODULE4_DOCUMENTS.md` for the full API reference and verification
+results.
+
 ## What's real vs scaffolded right now
 
 **Real, end to end:** register/login/logout/refresh/profile-edit, dark mode,
@@ -241,7 +292,8 @@ timeline and activity feed.**
 
 **Scaffolded, clearly labeled in-UI (not faked as working):**
 - Case-workspace chat/rich-cards — still only the `/app/cases/preview` sample screen; real cases use the (currently real, non-AI) Smart Case Folder tabs instead
-- Documents, Evidence, Witnesses, Applicable Laws, Judgments, AI Analysis, Courtroom Strategy, Reports — per-case tabs, generic `CaseComingSoonTab`
+- Evidence, Witnesses, Applicable Laws, Judgments, AI Analysis, Courtroom Strategy, Reports — per-case tabs, generic `CaseComingSoonTab`
+- **Documents — backend is REAL (Module 4 Phase 1: model, `/cases/:caseId/documents` API, disk upload, soft-delete, download, `documentCount`); the frontend Documents tab and upload UI are still `CaseComingSoonTab` / disabled "+ Add Document" until Phase 2.** So the Overview's document count is now real while the tab remains a placeholder.
 - All 13 Legal Research Center tools and 6 of 7 Practice Management tools (Hearings has per-case functionality now; the rest are still placeholders) — generic `ComingSoonView`
 - Global search — captures and displays the query, doesn't hit a real index
 - Case/hearing Activity — real events from `CaseEvent`, not a full field-level audit log (see Module 3 section above)
@@ -271,6 +323,18 @@ timeline and activity feed.**
   through from the frontend's current i18n language, so responses can
   eventually come back in the user's chosen language. Noted here so it isn't
   forgotten when Module 3/4 schemas get designed.
+- **Documents (Module 4 Phase 1)**: `storagePath`/`extractedText` are never
+  serialized to clients (`select: false` + `toJSON` transform) — the server's
+  on-disk layout stays off the wire. `docType` is free text. Uploaded files
+  get server-generated random names with their real extension (never the
+  user's `originalName`), so no user string reaches the filesystem. Soft
+  delete keeps the physical file; permanent removal is deferred. A single
+  `docType` per request applies to all files (per-file `docType` deferred to
+  the Phase 2 upload UI). Uploaded documents are still reachable on a
+  soft-deleted case (same as Hearings — `loadCase` doesn't filter `isDeleted`).
+- **Multer errors** are mapped in the centralized `errorMiddleware.js`
+  (`MulterError` → clean `400`s), not handled per-route — the upload feature
+  introduces no second error-handling pattern.
 
 ## i18n coverage — what's done vs outstanding
 
@@ -283,16 +347,18 @@ copy (capability card descriptions).
 
 ## Environment variables added this session
 
-None — this was a UI/architecture update, no new backend env vars.
+- `UPLOADS_DIR` (optional, Module 4) — root directory for uploaded case
+  documents; defaults to `<repo>/backend/uploads` when unset. Added to
+  `backend/.env.example`.
 
 ## Open follow-ups
 
 1. Full i18n coverage of `Profile.jsx` and remaining `Landing.jsx` copy — the Module 3 case-management pages are also English-only for now, same reasoning (kept moving on functional scope first, tracked here rather than silently skipped).
-2. Document model + upload pipeline (Module 4) — will populate the Documents/Evidence/Witnesses case-folder tabs and the Overview page's document/evidence counts (currently real zeros).
+2. **Module 4 Phase 2+** — the actual document pipeline on top of the now-real backend foundation: frontend Documents tab + upload UI (incl. per-file `docType` mapping), OCR → extraction → `extractedText`/`status` transitions, chunking → embeddings → vector store (ChromaDB), and per-case document counts/views in the UI. The Overview page's document count is already real via `GET /cases/:id`.
 3. Kannada legal-terminology review before real submission/demo use.
 4. `language` parameter in python-ai's Pydantic schemas (see decisions log above).
 5. Full field-level audit log (who changed which field, old → new value) for the case Activity tab — `CaseEvent` logs *that* something changed and a human-readable title, but not a structured before/after diff for every field.
 6. Cross-case Hearings calendar (Practice Management sidebar) — per-case hearings are real; this aggregation view is not.
 7. Multi-user case assignment UI — `Case.assignedUsers` exists at the data layer and defaults to `[createdBy]`, but there's no picker to assign a case to a colleague yet (would need a "list org users" endpoint that doesn't exist).
-8. **No dedicated Trash UI.** Case soft-delete has a restore *banner* (if you land on a deleted case's own URL) but no browsable list of your deleted cases. Hearing soft-delete has neither a restore endpoint nor any UI — a deleted hearing's document still exists in MongoDB (not unrecoverable), but nothing in the app can undelete it yet. Both are intentionally out of scope for now, not oversights.
+8. **No dedicated Trash UI.** Case soft-delete has a restore *banner* (if you land on a deleted case's own URL) but no browsable list of your deleted cases. Hearing soft-delete has neither a restore endpoint nor any UI — a deleted hearing's document still exists in MongoDB (not unrecoverable), but nothing in the app can undelete it yet. Documents (Module 4) have the same gap: deleted documents are `404` on detail/download and the physical file is retained but unrecoverable through the app. All three are intentionally out of scope for now, not oversights.
 9. `hearingCounter` on `Case` is internal bookkeeping (`select: false`) — if a future migration or bulk-import script inserts hearings directly (bypassing `createHearing`), it must also bump this counter, or the next real `createHearing`/`transitionHearing` call could collide with the unique index.

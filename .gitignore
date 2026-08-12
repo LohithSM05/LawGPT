@@ -53,4 +53,8 @@ vectorstore/*
 reports/*
 !reports/.gitkeep
 
+# Uploaded case documents (Module 4) — never commit user files
+backend/uploads/*
+!backend/uploads/.gitkeep
+
 .DS_Store
