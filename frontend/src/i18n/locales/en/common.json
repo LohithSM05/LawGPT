@@ -1,0 +1,21 @@
+{
+  "brand": "LawGPT",
+  "tagline": "AI-Powered Legal Case Management & Research",
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "signIn": "Sign in",
+    "getStarted": "Get started",
+    "openWorkspace": "Open workspace",
+    "logout": "Log out",
+    "back": "Back"
+  },
+  "theme": {
+    "light": "Switch to light mode",
+    "dark": "Switch to dark mode"
+  },
+  "footer": {
+    "tag": "Final Year Project · BE ISE"
+  }
+}

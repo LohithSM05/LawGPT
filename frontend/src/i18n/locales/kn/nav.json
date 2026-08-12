@@ -1,0 +1,53 @@
+{
+  "sections": {
+    "caseWorkspace": "ಪ್ರಕರಣ ಕಾರ್ಯಕ್ಷೇತ್ರ",
+    "legalResearch": "ಕಾನೂನು ಸಂಶೋಧನಾ ಕೇಂದ್ರ",
+    "practiceManagement": "ವೃತ್ತಿ ನಿರ್ವಹಣೆ"
+  },
+  "cases": {
+    "newCase": "ಹೊಸ ಪ್ರಕರಣ",
+    "ongoing": "ನಡೆಯುತ್ತಿರುವ ಪ್ರಕರಣಗಳು",
+    "won": "ಗೆದ್ದ ಪ್ರಕರಣಗಳು",
+    "lost": "ಸೋತ ಪ್ರಕರಣಗಳು",
+    "closed": "ಮುಚ್ಚಿದ ಪ್ರಕರಣಗಳು",
+    "archived": "ಆರ್ಕೈವ್ ಮಾಡಿದ ಪ್ರಕರಣಗಳು",
+    "recent": "ಇತ್ತೀಚಿನ ಪ್ರಕರಣಗಳು",
+    "pinned": "ಪಿನ್ ಮಾಡಿದ ಪ್ರಕರಣಗಳು"
+  },
+  "research": {
+    "judgeResearch": "ನ್ಯಾಯಾಧೀಶರ ಸಂಶೋಧನಾ ಫಲಕ",
+    "constitution": "ಭಾರತದ ಸಂವಿಧಾನ",
+    "bns": "ಬಿಎನ್‌ಎಸ್ (ಭಾರತೀಯ ನ್ಯಾಯ ಸಂಹಿತೆ)",
+    "bnss": "ಬಿಎನ್‌ಎಸ್‌ಎಸ್ (ಭಾರತೀಯ ನಾಗರಿಕ ಸುರಕ್ಷಾ ಸಂಹಿತೆ)",
+    "bsa": "ಬಿಎಸ್‌ಎ (ಭಾರತೀಯ ಸಾಕ್ಷ್ಯ ಅಧಿನಿಯಮ)",
+    "supremeCourt": "ಸರ್ವೋಚ್ಚ ನ್ಯಾಯಾಲಯದ ತೀರ್ಪುಗಳು",
+    "highCourt": "ಉಚ್ಚ ನ್ಯಾಯಾಲಯದ ತೀರ್ಪುಗಳು",
+    "judgmentSearch": "ತೀರ್ಪು ಹುಡುಕಾಟ",
+    "caseComparison": "ಪ್ರಕರಣ ಹೋಲಿಕೆ",
+    "evidenceAnalyzer": "ಸಾಕ್ಷ್ಯ ವಿಶ್ಲೇಷಕ",
+    "legalDictionary": "ಕಾನೂನು ನಿಘಂಟು",
+    "bookmarks": "ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳು",
+    "aiAssistant": "ಎಐ ಸಹಾಯಕ"
+  },
+  "practice": {
+    "clients": "ಕಕ್ಷಿದಾರರು",
+    "hearings": "ವಿಚಾರಣೆಗಳು",
+    "tasks": "ಕಾರ್ಯಗಳು",
+    "calendar": "ಕ್ಯಾಲೆಂಡರ್",
+    "reports": "ವರದಿಗಳು",
+    "analytics": "ವಿಶ್ಲೇಷಣೆ",
+    "settings": "ಸೆಟ್ಟಿಂಗ್‌ಗಳು"
+  },
+  "topbar": {
+    "searchPlaceholder": "ಪ್ರಕರಣಗಳು, ತೀರ್ಪುಗಳು, ದಾಖಲೆಗಳನ್ನು ಹುಡುಕಿ…",
+    "notifications": "ಅಧಿಸೂಚನೆಗಳು",
+    "noNotifications": "ಇನ್ನೂ ಯಾವುದೇ ಅಧಿಸೂಚನೆಗಳಿಲ್ಲ",
+    "profile": "ಪ್ರೊಫೈಲ್",
+    "logout": "ಲಾಗ್ ಔಟ್",
+    "language": "ಭಾಷೆ"
+  },
+  "comingSoon": {
+    "badge": "ಯೋಜಿತ — ಮಾಡ್ಯೂಲ್ {{module}}",
+    "backToWorkspace": "ಕಾರ್ಯಕ್ಷೇತ್ರಕ್ಕೆ ಹಿಂತಿರುಗಿ"
+  }
+}

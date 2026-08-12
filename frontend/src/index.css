@@ -1,0 +1,120 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  Design system — "case file" register.
+  Palette: cool parchment paper, statute-green primary, sealing-wax-gold
+  accent. Chosen deliberately to avoid the generic warm-cream+terracotta
+  and near-black+neon defaults common in AI-generated UI.
+*/
+@layer base {
+  :root {
+    --background: 80 14% 96%;
+    --foreground: 228 41% 12%;
+
+    --card: 80 20% 99%;
+    --card-foreground: 228 41% 12%;
+
+    --primary: 160 51% 25%;
+    --primary-foreground: 80 20% 97%;
+
+    --secondary: 160 15% 90%;
+    --secondary-foreground: 228 41% 12%;
+
+    --accent: 38 61% 47%;
+    --accent-foreground: 230 40% 12%;
+
+    --muted: 80 12% 92%;
+    --muted-foreground: 217 11% 40%;
+
+    --destructive: 3 55% 45%;
+    --destructive-foreground: 80 20% 97%;
+
+    --border: 144 7% 86%;
+    --input: 144 7% 86%;
+    --ring: 160 51% 32%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 230 35% 8%;
+    --foreground: 80 20% 94%;
+
+    --card: 230 30% 11%;
+    --card-foreground: 80 20% 94%;
+
+    --primary: 160 45% 42%;
+    --primary-foreground: 80 20% 97%;
+
+    --secondary: 228 20% 18%;
+    --secondary-foreground: 80 20% 94%;
+
+    --accent: 38 65% 55%;
+    --accent-foreground: 230 30% 10%;
+
+    --muted: 228 20% 16%;
+    --muted-foreground: 220 12% 65%;
+
+    --destructive: 3 60% 52%;
+    --destructive-foreground: 80 20% 97%;
+
+    --border: 228 15% 20%;
+    --input: 228 15% 20%;
+    --ring: 160 45% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  ::selection {
+    @apply bg-primary/20;
+  }
+
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+}
+
+@layer components {
+  /* Signature element: a small rotated exhibit tag, e.g. "EXHIBIT A". Used
+     sparingly — the hero eyebrow and small accent labels, not everywhere. */
+  .exhibit-tag {
+    @apply inline-flex items-center gap-2 rounded-sm border border-accent/40
+      bg-accent/10 px-2.5 py-1 font-mono text-[11px] uppercase tracking-wider
+      text-accent-foreground/80 dark:text-accent;
+  }
+
+  /* Faint dot-grid backdrop evoking ledger/graph paper, used behind auth
+     cards. Kept very low-opacity so it reads as texture, not decoration. */
+  .bg-ledger {
+    background-image: radial-gradient(hsl(var(--foreground) / 0.08) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .font-display {
+    font-family: 'Source Serif 4', ui-serif, Georgia, serif;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

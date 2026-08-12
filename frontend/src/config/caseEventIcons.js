@@ -1,0 +1,38 @@
+import {
+  FolderPlus, Pencil, ArrowRightLeft, Archive, RotateCcw, Trash2, RotateCw,
+  Pin, PinOff, Users, StickyNote, Gavel, CheckCircle2, PauseCircle,
+  Clock3, XCircle, CalendarClock, UserX, CalendarPlus,
+} from 'lucide-react';
+
+/** Falls back to Gavel for any event type not explicitly mapped. */
+export const EVENT_ICON = {
+  CASE_CREATED: FolderPlus,
+  CASE_UPDATED: Pencil,
+  CASE_STATUS_CHANGED: ArrowRightLeft,
+  CASE_ARCHIVED: Archive,
+  CASE_RESTORED: RotateCcw,
+  CASE_DELETED: Trash2,
+  CASE_UNDELETED: RotateCw,
+  CASE_PINNED: Pin,
+  CASE_UNPINNED: PinOff,
+  PARTY_ADDED: Users,
+  PARTY_UPDATED: Users,
+  PARTY_REMOVED: Users,
+  NOTE_ADDED: StickyNote,
+  NOTE_UPDATED: StickyNote,
+  NOTE_DELETED: StickyNote,
+  HEARING_CREATED: Gavel,
+  HEARING_UPDATED: Gavel,
+  HEARING_COMPLETED: CheckCircle2,
+  HEARING_ADJOURNED: PauseCircle,
+  HEARING_POSTPONED: Clock3,
+  HEARING_CANCELLED: XCircle,
+  HEARING_RESCHEDULED: CalendarClock,
+  HEARING_NO_APPEARANCE: UserX,
+  HEARING_DELETED: Trash2,
+  NEXT_HEARING_SCHEDULED: CalendarPlus,
+};
+
+export function iconFor(eventType) {
+  return EVENT_ICON[eventType] || Gavel;
+}

@@ -1,0 +1,53 @@
+{
+  "sections": {
+    "caseWorkspace": "Case Workspace",
+    "legalResearch": "Legal Research Center",
+    "practiceManagement": "Practice Management"
+  },
+  "cases": {
+    "newCase": "New Case",
+    "ongoing": "Ongoing Cases",
+    "won": "Won Cases",
+    "lost": "Lost Cases",
+    "closed": "Closed Cases",
+    "archived": "Archived Cases",
+    "recent": "Recent Cases",
+    "pinned": "Pinned Cases"
+  },
+  "research": {
+    "judgeResearch": "Judge Research Panel",
+    "constitution": "Constitution of India",
+    "bns": "BNS",
+    "bnss": "BNSS",
+    "bsa": "BSA",
+    "supremeCourt": "Supreme Court Judgments",
+    "highCourt": "High Court Judgments",
+    "judgmentSearch": "Judgment Search",
+    "caseComparison": "Case Comparison",
+    "evidenceAnalyzer": "Evidence Analyzer",
+    "legalDictionary": "Legal Dictionary",
+    "bookmarks": "Bookmarks",
+    "aiAssistant": "AI Assistant"
+  },
+  "practice": {
+    "clients": "Clients",
+    "hearings": "Hearings",
+    "tasks": "Tasks",
+    "calendar": "Calendar",
+    "reports": "Reports",
+    "analytics": "Analytics",
+    "settings": "Settings"
+  },
+  "topbar": {
+    "searchPlaceholder": "Search cases, judgments, documents…",
+    "notifications": "Notifications",
+    "noNotifications": "No notifications yet",
+    "profile": "Profile",
+    "logout": "Log out",
+    "language": "Language"
+  },
+  "comingSoon": {
+    "badge": "Planned — Module {{module}}",
+    "backToWorkspace": "Back to workspace"
+  }
+}
