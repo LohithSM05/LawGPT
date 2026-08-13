@@ -22,19 +22,20 @@ const REAL_TABS = [
   { slug: 'timeline', label: 'Timeline', icon: Clock },
   { slug: 'hearings', label: 'Hearings', icon: Gavel },
   { slug: 'documents', label: 'Documents', icon: Paperclip },
+  { slug: 'ai-analysis', label: 'AI Analysis', icon: Sparkles },
+  { slug: 'laws', label: 'Applicable Laws', icon: ScrollText },
   { slug: 'parties', label: 'Parties', icon: Users },
   { slug: 'notes', label: 'Notes', icon: StickyNote },
   { slug: 'activity', label: 'Activity', icon: Activity },
 ];
 
 // Slug, label, icon, and which module builds it — rendered by the generic
-// CaseComingSoonTab so these don't need one file each.
+// CaseComingSoonTab so these don't need one file each. ai-analysis and laws
+// were built by Module 5 Phase 3 and moved to REAL_TABS above.
 export const COMING_SOON_TABS = [
   { slug: 'evidence', label: 'Evidence', icon: ShieldCheck, plannedModule: 4 },
   { slug: 'witnesses', label: 'Witnesses', icon: UserSearch, plannedModule: 4 },
-  { slug: 'laws', label: 'Applicable Laws', icon: ScrollText, plannedModule: 5 },
   { slug: 'judgments', label: 'Judgments', icon: BookMarked, plannedModule: 6 },
-  { slug: 'ai-analysis', label: 'AI Analysis', icon: Sparkles, plannedModule: 5 },
   { slug: 'strategy', label: 'Courtroom Strategy', icon: Target, plannedModule: 8 },
   { slug: 'reports', label: 'Reports', icon: FileBarChart, plannedModule: 9 },
 ];

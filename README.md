@@ -62,9 +62,9 @@ Copy each `.env.example` to `.env` in the same folder and fill in real values
 - [x] Module 1 — Architecture & scaffolding
 - [x] Module 2 — Authentication (backend complete; frontend complete, retrofitted for the new IA)
 - [x] Architecture update — sidebar/topbar shell, i18n, IA restructuring
-- [x] **Module 3 — Case Management + Smart Case Folder + Hearing Management** *(this delivery — see below)*
-- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **next**
-- [ ] Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — also backs the BNS / BNSS / BSA sidebar pages
+- [x] Module 3 — Case Management + Smart Case Folder + Hearing Management *(see below)*
+- [x] **Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — Phase 1 + Phase 2 complete** *(see docs/MODULE4_DOCUMENTS.md)*
+- [x] **Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — Phase 3 (analysis layer) complete** *(see docs/MODULE5_ANALYSIS.md)*; the BNS / BNSS / BSA sidebar pages remain
 - [ ] Module 6 — Similar judgments (RAG) — also backs Judge Research, Constitution, Supreme/High Court, Judgment Search, Case Comparison, Legal Dictionary
 - [ ] Module 7 — Arguments + evidence scoring — also backs Evidence Analyzer
 - [ ] Module 8 — Legal chatbot — also backs AI Assistant (and replaces the sample data in the case-workspace preview)
@@ -99,10 +99,12 @@ so a later module can layer a selectable perspective (defence/prosecution/
 petitioner/etc.) on top without restructuring the data.
 
 **Smart Case Folder**: `overview` / `timeline` / `hearings` / `parties` /
-`notes` / `activity` are real. `documents` / `evidence` / `witnesses` /
-`laws` / `judgments` / `ai-analysis` / `strategy` / `reports` render through
-the generic `CaseComingSoonTab`, each tagged with the module that will build
-it — no fabricated data behind any of them.
+`notes` / `activity` are real, as are `documents` (Module 4 upload pipeline),
+`ai-analysis` (Module 5: summary, document timeline, entities, applicable
+laws) and `laws` (Module 5: applicable-laws view with curated IPC↔BNS
+equivalents). `evidence` / `witnesses` / `judgments` / `strategy` / `reports`
+still render through the generic `CaseComingSoonTab`, each tagged with the
+module that will build it — no fabricated data behind any of them.
 
 **Timeline vs Activity**: both are driven by the same real events (case
 creation + hearings) via `GET /cases/:id/timeline` — Timeline renders them

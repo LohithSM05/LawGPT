@@ -29,6 +29,8 @@ import CasePartiesTab from '../pages/app/case/CasePartiesTab';
 import CaseNotesTab from '../pages/app/case/CaseNotesTab';
 import CaseActivityTab from '../pages/app/case/CaseActivityTab';
 import CaseDocumentsTab from '../pages/app/case/CaseDocumentsTab';
+import CaseAIAnalysisTab from '../pages/app/case/CaseAIAnalysisTab';
+import CaseLawsTab from '../pages/app/case/CaseLawsTab';
 import CaseComingSoonTab from '../pages/app/case/CaseComingSoonTab';
 
 export default function AppRoutes() {
@@ -73,6 +75,8 @@ export default function AppRoutes() {
             <Route path="notes" element={<CaseNotesTab />} />
             <Route path="activity" element={<CaseActivityTab />} />
             <Route path="documents" element={<CaseDocumentsTab />} />
+            <Route path="ai-analysis" element={<CaseAIAnalysisTab />} />
+            <Route path="laws" element={<CaseLawsTab />} />
             <Route path=":section" element={<CaseComingSoonTab />} />
           </Route>
 

@@ -24,8 +24,8 @@ AI service — see `docs/ARCHITECTURE.md` for the full breakdown and data flow.
 - [x] Module 2 — Authentication (backend complete; frontend complete, retrofitted for the new IA)
 - [x] Architecture update — sidebar/topbar shell, i18n, IA restructuring
 - [x] **Module 3 — Case Management + Smart Case Folder + Hearing Management**
-- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **DONE: Phase 1 (backend foundation) + Phase 2 (full pipeline + frontend). Phase 1: Document model, nested routes, disk upload, list/detail/soft-delete/download, real documentCount, DOCUMENT_* CaseEvents. Phase 2: python-ai service (format detection → PDF/DOCX/TXT extraction → per-page OCR fallback → cleaning → page-aware chunking → embeddings → ChromaDB), DocumentPage page-provenance store, background worker + status lifecycle, reprocess/pages endpoints, frontend Documents tab + per-file-docType upload UI. See docs/MODULE4_DOCUMENTS.md.**
-- [ ] Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — also backs the BNS / BNSS / BSA sidebar pages
+- [x] **Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **DONE: Phase 1 (backend foundation) + Phase 2 (full pipeline + frontend). Phase 1: Document model, nested routes, disk upload, list/detail/soft-delete/download, real documentCount, DOCUMENT_* CaseEvents. Phase 2: python-ai service (format detection → PDF/DOCX/TXT extraction → per-page OCR fallback → cleaning → page-aware chunking → embeddings → ChromaDB), DocumentPage page-provenance store, background worker + status lifecycle, reprocess/pages endpoints, frontend Documents tab + per-file-docType upload UI. See docs/MODULE4_DOCUMENTS.md.**
+- [x] **Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — DONE: Phase 3 (legal-document analysis layer). CaseAnalysis model (one per case, idempotent), synchronous POST/GET /cases/:caseId/analysis endpoints, python-ai analysis service (POST /analysis/case: Gemini behind LLM_PROVIDER + deterministic stub, Kannada detection by Unicode block with Chroma retrieval bypass, curated IPC↔BNS reference data, strict page/document provenance), AI_ANALYSIS_* CaseEvents, and real ai-analysis + laws case tabs. Module 4 pipeline untouched. See docs/MODULE5_ANALYSIS.md.** Remaining Module 5 work (BNS/BNSS/BSA sidebar pages) is a future phase.
 - [ ] Module 6 — Similar judgments (RAG) — also backs Judge Research, Constitution, Supreme/High Court, Judgment Search, Case Comparison, Legal Dictionary
 - [ ] Module 7 — Arguments + evidence scoring — also backs Evidence Analyzer
 - [ ] Module 8 — Legal chatbot — also backs AI Assistant (and replaces the sample data in the case-workspace preview)
@@ -357,6 +357,75 @@ Kannada — the Kannada language code is `kan`, so the OCR language is selected
 with `OCR_LANG=kan` or `OCR_LANG=kan+eng` for mixed documents). Verifications
 used a portable tesseract extracted from Ubuntu .debs.
 
+## Case Analysis (Module 5, Phase 3) — legal-document analysis layer
+
+Built on top of the unchanged Module 4 pipeline. Analyzes a case's *processed*
+documents (status `completed`, non-deleted) and persists a structured, per-case
+analysis with a per-document breakdown.
+
+**`CaseAnalysis` model** (`backend/src/models/CaseAnalysis.js`): **one record
+per case** (`caseId` unique) — re-running analysis replaces it (idempotent).
+Status lifecycle `pending → processing → completed | failed`, synchronous for
+this checkpoint but with the `status` field retained so a later module can
+convert to a background worker without redesigning the model. Analysis never
+lives on the `Case` model (the neutral Module 3 entity stays untouched) and
+never lives in ChromaDB (vectors are retrieval; analysis is a persisted
+structured artifact).
+
+**Provenance is strict.** `timeline`, `entities`, `laws`, and per-document
+summaries carry `sourceDocumentId` + `pageNumber` wherever the LLM anchored
+them. The python-ai layer validates a cited page against the pages it actually
+received — a page number the LLM could not have seen is dropped to `null`,
+never kept. `laws` also carries `equivalent` (e.g. `"BNS 318(4)"` for an
+`IPC 420` mention), populated **only** from the curated reference data — an
+unknown equivalence stays explicitly empty, never invented.
+
+**Backend orchestration**: `analysisService.js` builds the python-ai payload
+from the authoritative `DocumentPage` page units (capped at `ANALYSIS_MAX_CHARS`,
+whole pages dropped from the end, never cut mid-page) and calls python-ai
+`POST /analysis/case`. `analysisController.js` owns the record lifecycle and
+the `AI_ANALYSIS_STARTED` / `AI_ANALYSIS_COMPLETED` / `AI_ANALYSIS_FAILED`
+`CaseEvent`s. python-ai unreachable → clean `502`; pipeline/LLM error → `422`;
+both persist the failed record before returning, so a failure is never left
+marked `completed`. Only processed documents are analyzable; none → `400`.
+
+**python-ai analysis layer** (`analysis_service.py`, `llm_service.py`,
+`rag_service.py`, `nlp/ipc_bns_map.py`):
+- `llm_service.py` — Gemini wrapper (JSON-only extraction). Provider behind
+  `LLM_PROVIDER`: `gemini` (needs `GEMINI_API_KEY`) or `stub` (deterministic
+  canned output, with real Kannada text when `language='kn'`) so the full
+  pipeline is testable without an API key.
+- **Kannada**: detected deterministically by Unicode block (U+0C80–U+0CFF).
+  When Kannada appears anywhere in the case text, the English-only Chroma
+  retrieval grounding is bypassed entirely and analysis uses the authoritative
+  full page text. `language` (`en`/`kn`) selects the narrative output language;
+  Gemini is multilingual so Kannada summaries/labels work. UTF-8 preserved
+  end-to-end.
+- `rag_service.py` — English-only **optional** grounding: reuses the existing
+  case-scoped Chroma search (Module 4 vector layer, unchanged); retrieved
+  excerpts are appended to the prompt. Degrades gracefully to full text on any
+  retrieval failure. `ANALYSIS_USE_RETRIEVAL` / `ANALYSIS_TOP_K` knobs.
+- `nlp/ipc_bns_map.py` — **curated, source-verified** IPC↔BNS correspondence
+  (base-section level; BPRD correspondence table + 2025-verified references).
+  `normalize_law()` emits the `equivalent` cross-reference only from this data.
+
+**The bge-small-en-v1.5 limitation is intentionally NOT addressed in Phase 3.**
+Analysis is an LLM task over authoritative text; the English-oriented embedding
+model only powers similarity search, which is at most optional English-only
+grounding and is bypassed for Kannada. A multilingual embedding model +
+re-embedding is a Module 6 concern.
+
+**Frontend**: `ai-analysis` and `laws` are now real case tabs
+(`CaseAIAnalysisTab.jsx`, `CaseLawsTab.jsx`, moved from `COMING_SOON_TABS` to
+`REAL_TABS` in `CaseDetailLayout.jsx`; routes in `AppRoutes.jsx`). The AI
+Analysis tab has Generate/Regenerate (language follows the app's i18n language),
+empty/loading/failed/completed states, summary + key points, document timeline,
+entities grouped by type, applicable laws with `≈ BNS …` equivalents, and a
+per-document accordion with sources. The Laws tab renders the applicable-laws
+view from the same record. `services/analysisService.js` wraps the two
+endpoints. `config/caseEventIcons.js` maps the three AI analysis events
+(`Loader2` / `Sparkles` / `AlertTriangle`).
+
 ## What's real vs scaffolded right now
 
 **Real, end to end:** register/login/logout/refresh/profile-edit, dark mode,
@@ -369,12 +438,16 @@ correct by recalculateNextHearingDate), case search/filter, event-log-backed
 timeline and activity feed, **document upload + full processing pipeline
 (OCR → extraction → page units → chunking → embeddings → ChromaDB) with
 status lifecycle, page/chunk counts, download, soft-delete, and a Documents
-tab + per-file-docType upload UI.**
+tab + per-file-docType upload UI, and the Module 5 Phase 3 case-analysis
+layer (synchronous, per-case `CaseAnalysis` with strict page/document
+provenance, curated IPC↔BNS equivalents, Kannada-aware with retrieval bypass,
+and real AI Analysis + Applicable Laws case tabs).**
 
 **Scaffolded, clearly labeled in-UI (not faked as working):**
 - Case-workspace chat/rich-cards — still only the `/app/cases/preview` sample screen; real cases use the (currently real, non-AI) Smart Case Folder tabs instead
-- Evidence, Witnesses, Applicable Laws, Judgments, AI Analysis, Courtroom Strategy, Reports — per-case tabs, generic `CaseComingSoonTab`
+- Evidence, Witnesses, Judgments, Courtroom Strategy, Reports — per-case tabs, generic `CaseComingSoonTab`
 - **Documents — fully REAL (Module 4 complete): backend model + API, disk upload, soft-delete, download, `documentCount`, the Phase 2 processing pipeline (OCR → extraction → page units → chunking → embeddings → ChromaDB) via the python-ai service, and the frontend Documents tab with per-file-docType upload, status badges, retry, and auto-polling.**
+- **AI Analysis + Applicable Laws case tabs — fully REAL (Module 5 Phase 3): per-case `CaseAnalysis` (summary + key points, document timeline, entities, IPC/BNS/BNSS/BSA laws with curated `equivalent`s, per-document breakdown), synchronous Generate/Regenerate via `POST /cases/:caseId/analysis`, Kannada-aware output, retrievalUsed flag.**
 - All 13 Legal Research Center tools and 6 of 7 Practice Management tools (Hearings has per-case functionality now; the rest are still placeholders) — generic `ComingSoonView`
 - Global search — captures and displays the query, doesn't hit a real index
 - Case/hearing Activity — real events from `CaseEvent`, not a full field-level audit log (see Module 3 section above)
@@ -421,6 +494,20 @@ tab + per-file-docType upload UI.**
   page-aware — a chunk never crosses a page boundary. python-ai unreachable
   requeues rather than fails a document. Tesseract is a system dependency
   (not a pip package); its binary path is `TESSERACT_CMD`-configurable.
+- **Analysis (Module 5 Phase 3)**: synchronous by design, but the
+  `CaseAnalysis.status` field uses the same pending/processing/completed/failed
+  lifecycle as `Document` so a later module can switch to a background worker
+  without redesigning the model. Analysis runs only over `completed`,
+  non-deleted documents, reads the authoritative `DocumentPage` units (never
+  `extractedText`), and never touches ChromaDB for writes. Provenance is
+  validated client-side in python-ai: cited page numbers must be pages the LLM
+  actually received, or they are dropped to `null`. The LLM is behind
+  `LLM_PROVIDER` (`gemini` | `stub`) so acceptance tests run without a key.
+- **IPC↔BNS equivalences (Module 5 Phase 3)**: only the curated, source-verified
+  reference data in `python-ai/app/nlp/ipc_bns_map.py` is ever emitted as a
+  law's `equivalent`; an unknown equivalence stays explicitly empty. The map is
+  base-section-level (BNS restructured IPC sub-sections) and flagged for a
+  legal review pass, consistent with the Kannada-terminology follow-up.
 - **Multer errors** are mapped in the centralized `errorMiddleware.js`
   (`MulterError` → clean `400`s), not handled per-route — the upload feature
   introduces no second error-handling pattern.
@@ -450,13 +537,23 @@ copy (capability card descriptions).
   `tesseract-ocr-kan` on Ubuntu 24.04), `CHUNK_SIZE`, `CHUNK_OVERLAP`,
   `BACKEND_SERVICE_URL` — added to `python-ai/.env.example`, read by
   `python-ai/app/core/config.py`.
+- `ANALYSIS_MAX_CHARS` (backend, Module 5 Phase 3) — cap on the document text
+  streamed to python-ai for one analysis (whole pages dropped from the end).
+  Added to `backend/.env.example`; read by `backend/src/config/env.js`
+  (`env.analysis.maxChars`).
+- python-ai (Module 5 Phase 3): `LLM_PROVIDER` (`gemini` | `stub`),
+  `GEMINI_MODEL`, `ANALYSIS_USE_RETRIEVAL`, `ANALYSIS_TOP_K` — added to
+  `python-ai/.env.example`, read by `python-ai/app/core/config.py`
+  (`settings.llm_provider`, `settings.gemini_model`,
+  `settings.analysis_use_retrieval`, `settings.analysis_top_k`).
 
 ## Open follow-ups
 
 1. Full i18n coverage of `Profile.jsx` and remaining `Landing.jsx` copy — the Module 3 case-management pages are also English-only for now, same reasoning (kept moving on functional scope first, tracked here rather than silently skipped).
 2. **Module 4 is complete.** Remaining document-pipeline polish (all out of scope by design): a page-preview in the Documents tab (the `GET /:id/pages` endpoint already serves the data), physical-file deletion / Trash / restore UI (still `404` after soft-delete, file retained on disk), and the OCR "scanned PDF" path is verified but a scanned-PDF fixture should be exercised on a machine with tesseract installed via `apt`.
 3. Kannada legal-terminology review before real submission/demo use.
-4. `language` threading from the frontend into python-ai calls — the Phase 2 schemas accept `language: Literal['en','kn']` (default `en`) and the backend pipeline hardcodes `en` today; the frontend isn't wired yet. OCR language is now globally configurable via `OCR_LANG` (e.g. `kan` or `kan+eng`, requires `tesseract-ocr-kan`), but **per-document** language routing and a multilingual embedding model remain the natural next steps (the current `BAAI/bge-small-en-v1.5` model is English-only and does not meaningfully embed Kannada text).
+4. `language` threading from the frontend into python-ai calls — **partially closed by Module 5 Phase 3**: the analysis feature threads the frontend i18n language into `POST /cases/:caseId/analysis` → `POST /analysis/case` (`en`/`kn`), and Kannada output is preserved. Still open: the Module 4 **document pipeline** hardcodes `language=en` (OCR language is globally configurable via `OCR_LANG`, e.g. `kan` or `kan+eng`), and **per-document** language routing + a multilingual embedding model remain natural next steps (the current `BAAI/bge-small-en-v1.5` model is English-only and does not meaningfully embed Kannada text).
+5. **Module 5 Phase 3 is complete.** Remaining Module 5 work (out of scope by design, per the phase plan): the BNS / BNSS / BSA Legal Research Center sidebar pages, which this phase's analysis output can later back.
 5. Full field-level audit log (who changed which field, old → new value) for the case Activity tab — `CaseEvent` logs *that* something changed and a human-readable title, but not a structured before/after diff for every field.
 6. Cross-case Hearings calendar (Practice Management sidebar) — per-case hearings are real; this aggregation view is not.
 7. Multi-user case assignment UI — `Case.assignedUsers` exists at the data layer and defaults to `[createdBy]`, but there's no picker to assign a case to a colleague yet (would need a "list org users" endpoint that doesn't exist).

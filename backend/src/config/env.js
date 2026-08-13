@@ -37,6 +37,13 @@ const env = {
     processingTimeoutMs: parseInt(process.env.DOC_PROCESSING_TIMEOUT_MS, 10) || 10 * 60 * 1000,
   },
 
+  // Module 5 Phase 3 — case analysis. maxChars caps the total document text
+  // streamed to python-ai for one analysis (whole pages are dropped from the
+  // end past this budget, never cut mid-page), keeping LLM context bounded.
+  analysis: {
+    maxChars: parseInt(process.env.ANALYSIS_MAX_CHARS, 10) || 30000,
+  },
+
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',

@@ -9,10 +9,12 @@ const mongoose = require('mongoose');
  * added with Module 4 Phase 1 (document upload pipeline foundation);
  * DOCUMENT_PROCESSING_STARTED / DOCUMENT_PROCESSED /
  * DOCUMENT_PROCESSING_FAILED with Phase 2 (OCR → extraction → chunking →
- * embeddings → vector store).
+ * embeddings → vector store). AI_ANALYSIS_STARTED / AI_ANALYSIS_COMPLETED /
+ * AI_ANALYSIS_FAILED were added with Module 5 Phase 3 (case analysis of the
+ * processed legal documents).
  * Deliberately NOT adding placeholder types for subsystems that don't exist
- * yet (EVIDENCE_ADDED, WITNESS_ADDED, AI_ANALYSIS_CREATED, etc.) — those
- * get added when their module lands.
+ * yet (EVIDENCE_ADDED, WITNESS_ADDED, etc.) — those get added when their
+ * module lands.
  */
 const EVENT_TYPES = [
   'CASE_CREATED',
@@ -35,6 +37,9 @@ const EVENT_TYPES = [
   'DOCUMENT_PROCESSING_STARTED',
   'DOCUMENT_PROCESSED',
   'DOCUMENT_PROCESSING_FAILED',
+  'AI_ANALYSIS_STARTED',
+  'AI_ANALYSIS_COMPLETED',
+  'AI_ANALYSIS_FAILED',
   'HEARING_CREATED',
   'HEARING_UPDATED',
   'HEARING_COMPLETED',

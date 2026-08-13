@@ -36,7 +36,7 @@ export TESSDATA_PREFIX=/tmp/opencode/tess/extracted/usr/share/tesseract-ocr/5/te
 export LD_LIBRARY_PATH=/tmp/opencode/tess/extracted/usr/lib/x86_64-linux-gnu
 export TESSERACT_CMD=/tmp/opencode/tess/extracted/usr/bin/tesseract
 source .venv/bin/activate
-uvicorn app.main:app --reload --port 8000
+LLM_PROVIDER=stub uvicorn app.main:app --reload --port 8000   # stub = deterministic analysis; use LLM_PROVIDER=gemini (default) for real Gemini
 # → http://localhost:8000   health: curl http://localhost:8000/health
 
 # ── Terminal 4 — Frontend ────────────────────────────────────────────
@@ -90,7 +90,9 @@ cp frontend/.env.example  frontend/.env
 
 Minimum edits: `backend/.env` → JWT secrets + `MONGO_URI`;
 `python-ai/.env` → `GEMINI_API_KEY` (only needed for LLM/RAG features, not
-for the health check or document pipeline without Gemini).
+for the health check or document pipeline without Gemini). For the Module 5
+case-analysis feature with the deterministic stub (no key needed), set
+`LLM_PROVIDER=stub` in `python-ai/.env` or inline when starting uvicorn (§4).
 
 ---
 
@@ -172,6 +174,10 @@ uvicorn app.main:app --reload --port 8000
   from `requirements.txt`; binary is `.venv/bin/uvicorn`).
 - **Startup command**: `uvicorn app.main:app --reload --port 8000`
 - **Port**: `8000` (default from `python-ai/.env` / `app/core/config.py`).
+- **LLM provider (Module 5 case analysis)**: `LLM_PROVIDER` selects the analysis
+  LLM — `gemini` (default, needs `GEMINI_API_KEY`) or `stub` (deterministic
+  canned output, runnable with no key; use for acceptance tests). Pass it inline
+  (`LLM_PROVIDER=stub uvicorn ...`) or set it in `python-ai/.env`.
 - The three `TESSERACT_*` exports are **required for OCR** because Tesseract is
   a portable binary, not on PATH. You may instead set `TESSERACT_CMD` in
   `python-ai/.env` (then only `TESSDATA_PREFIX` + `LD_LIBRARY_PATH` need
@@ -374,7 +380,7 @@ system packages `tesseract-ocr` + `tesseract-ocr-kan`.
 │   ├── src/                 UI source
 │   ├── dist/                production build
 │   └── .env / .env.example
-├── docs/                    ARCHITECTURE.md, MODULE2_AUTH.md, MODULE3_CASES.md, MODULE4_DOCUMENTS.md
+├── docs/                    ARCHITECTURE.md, MODULE2_AUTH.md, MODULE3_CASES.md, MODULE4_DOCUMENTS.md, MODULE5_ANALYSIS.md
 ├── PROJECT_MEMORY.md        living project doc, updated each module
 └── README.md
 

@@ -14,6 +14,22 @@ class Settings(BaseSettings):
     chroma_persist_dir: str = "./vectorstore"
     chroma_collection: str = "lawgpt_documents"
 
+    # Module 5 Phase 3 — LLM provider for case analysis. "gemini" uses Google
+    # Generative AI (GEMINI_API_KEY required); "stub" returns deterministic
+    # canned output so tests can run without an API key. The model is kept
+    # behind this flag on purpose: analysis never requires a live key, and the
+    # stub path is what acceptance tests exercise.
+    llm_provider: str = "gemini"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-1.5-flash"
+
+    # Analysis retrieval knob (English-only grounding). The embedding model
+    # (BAAI/bge-small-en-v1.5) is English-oriented, so retrieval is ONLY used
+    # as optional grounding for English corpora and is always bypassed when
+    # Kannada script is detected in the case text.
+    analysis_use_retrieval: bool = True
+    analysis_top_k: int = 8
+
     # Pipeline knobs
     ocr_min_text_chars: int = 25
     ocr_raster_dpi: int = 200
