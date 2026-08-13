@@ -26,6 +26,17 @@ const env = {
   // <repo>/backend/uploads. Gitignored — uploaded files are never committed.
   uploadsDir: process.env.UPLOADS_DIR || path.join(__dirname, '..', '..', 'uploads'),
 
+  // Module 4 Phase 2 — document processing pipeline worker. The backend polls
+  // MongoDB for documents stuck in 'pending' and hands each to the python-ai
+  // service (extraction/OCR/chunking/embeddings). pollIntervalMs is the
+  // sleep between poll ticks; processingTimeoutMs is how old an in-flight
+  // 'processing' record must be before it is treated as a crashed job and
+  // requeued on the next tick.
+  docPipeline: {
+    pollIntervalMs: parseInt(process.env.DOC_PIPELINE_POLL_INTERVAL_MS, 10) || 5000,
+    processingTimeoutMs: parseInt(process.env.DOC_PROCESSING_TIMEOUT_MS, 10) || 10 * 60 * 1000,
+  },
+
   jwt: {
     accessSecret: process.env.JWT_ACCESS_SECRET || 'dev_access_secret_change_me',
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m',

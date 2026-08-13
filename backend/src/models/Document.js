@@ -33,6 +33,12 @@ const documentSchema = new mongoose.Schema(
     // explicitly. Same convention as Case.hearingCounter.
     extractedText: { type: String, default: '', select: false },
     chunkCount: { type: Number, default: 0 },
+    // Populated by the Phase 2 pipeline. pageCount is the number of ordered
+    // page-level text units persisted in DocumentPage (empty/OCR-failed pages
+    // are skipped, so pageNumber values may be non-contiguous).
+    pageCount: { type: Number, default: 0 },
+    // Set when the pipeline last completed; null while pending/failed.
+    processedAt: { type: Date, default: null },
     error: { type: String, trim: true, default: '' },
     // Soft delete — a document is case history and is never hard-deleted
     // through the normal DELETE endpoint (see documentController.js

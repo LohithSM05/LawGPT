@@ -44,6 +44,24 @@ export const HEARING_TYPES = [
   'Other',
 ];
 
+// Curated suggestions for the Documents tab's per-file docType picker. Like
+// caseType/party role/hearingType, the backend stores docType as free text —
+// this list is just a datalist of suggestions, so extending it is a one-line
+// change and anything not listed can still be typed.
+export const DOC_TYPES = [
+  'FIR',
+  'Complaint',
+  'Statement',
+  'Chargesheet',
+  'Court Document',
+  'Judgment',
+  'Bail Application',
+  'Evidence',
+  'Petition',
+  'Affidavit',
+  'Other',
+];
+
 // These two ARE fixed enums on the backend (see Case.js / Hearing.js) since
 // they drive filtering, badges, and sidebar counts — not free text.
 export const CASE_STATUSES = [

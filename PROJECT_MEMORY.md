@@ -24,7 +24,7 @@ AI service — see `docs/ARCHITECTURE.md` for the full breakdown and data flow.
 - [x] Module 2 — Authentication (backend complete; frontend complete, retrofitted for the new IA)
 - [x] Architecture update — sidebar/topbar shell, i18n, IA restructuring
 - [x] **Module 3 — Case Management + Smart Case Folder + Hearing Management**
-- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **Phase 1 (backend foundation) DONE: Document model, nested routes, disk upload, list/detail/soft-delete/download, real documentCount, DOCUMENT_* CaseEvents. Phase 2+ pending: OCR → extraction → chunking → embeddings → vector store, frontend Documents tab/upload UI.**
+- [ ] Module 4 — Document upload pipeline (OCR → extraction → chunking → embeddings → vector store) — **DONE: Phase 1 (backend foundation) + Phase 2 (full pipeline + frontend). Phase 1: Document model, nested routes, disk upload, list/detail/soft-delete/download, real documentCount, DOCUMENT_* CaseEvents. Phase 2: python-ai service (format detection → PDF/DOCX/TXT extraction → per-page OCR fallback → cleaning → page-aware chunking → embeddings → ChromaDB), DocumentPage page-provenance store, background worker + status lifecycle, reprocess/pages endpoints, frontend Documents tab + per-file-docType upload UI. See docs/MODULE4_DOCUMENTS.md.**
 - [ ] Module 5 — Case analysis (summary, timeline, entities, IPC/BNS tagging) — also backs the BNS / BNSS / BSA sidebar pages
 - [ ] Module 6 — Similar judgments (RAG) — also backs Judge Research, Constitution, Supreme/High Court, Judgment Search, Case Comparison, Legal Dictionary
 - [ ] Module 7 — Arguments + evidence scoring — also backs Evidence Analyzer
@@ -279,6 +279,84 @@ remains `0` (Evidence not implemented).
 See `docs/MODULE4_DOCUMENTS.md` for the full API reference and verification
 results.
 
+## Document Management (Module 4, Phase 2) — processing pipeline
+
+The Phase 1 foundation is unchanged (upload, storage, soft-delete, access
+control) and now sits on top of a full pipeline owned by a **background
+worker in the backend** that pushes each uploaded document through the
+stateless **python-ai** service.
+
+**Ownership boundaries (unchanged from the architecture):** MongoDB is the
+authoritative metadata store, the filesystem (`uploads/<caseId>/`) is the
+authoritative uploaded-file store, and ChromaDB (`python-ai/vectorstore/`,
+gitignored, regenerable) is the retrieval/vector layer. python-ai never
+touches MongoDB or the uploads filesystem — the backend streams the file to
+it over HTTP and persists the structured result.
+
+**Backend worker** (`backend/src/services/documentPipelineService.js`, started
+in `server.js`): an in-process, MongoDB-polled loop (no Redis/BullMQ — single
+instance). Each tick recovers crashed jobs (`processing` stuck past
+`DOC_PROCESSING_TIMEOUT_MS` → requeued to `pending`) then processes every
+`pending` document sequentially. Claims are atomic
+(`findOneAndUpdate({ status: 'pending' }, { status: 'processing' })`), so
+restarts/concurrent ticks never double-process. It streams the file to python-ai
+`POST /documents/process`, persists the returned ordered page-level text units
+into `DocumentPage`, sets `Document.extractedText` (full normalized text),
+`pageCount`, `chunkCount`, `status: 'completed'`, and emits
+`DOCUMENT_PROCESSING_STARTED` / `DOCUMENT_PROCESSED` /
+`DOCUMENT_PROCESSING_FAILED` `CaseEvent`s. **python-ai unreachable is NOT a
+document failure** — those docs are requeued to `pending` and retried next
+tick, not marked `failed`.
+
+**Status lifecycle**: `pending → processing → completed | failed`. Only the
+worker and the `POST /:documentId/process` endpoint (which sets
+`failed → pending` for a retry) move a document out of a terminal state.
+`processing` is only ever transient; `failed` carries a readable `error`
+(from python-ai's `detail`/`error` payload).
+
+**`DocumentPage` model** (`backend/src/models/DocumentPage.js`): ordered
+page-level text units — the durable page-provenance layer. `pageNumber` is the
+real source-page number (non-contiguous after OCR-empty pages are skipped),
+`{ documentId, pageNumber }` is unique, and a document's rows are replaced
+wholesale on reprocessing (idempotent). Chunks live **only** in ChromaDB
+(metadata: `caseId`, `documentId`, `pageNumber`, `chunkIndex`, `chunkCount`,
+`documentName`, `docType`) and can be re-embedded from `DocumentPage` if the
+vector store is wiped — that's the documented regeneration story.
+
+**python-ai** (`python-ai/app/`): a real FastAPI service at last. `POST
+/documents/process` runs format detection (extension + MIME) → extraction
+(PDF text layer via PyMuPDF with per-page OCR fallback when text <
+`OCR_MIN_TEXT_CHARS`; DOCX via python-docx; TXT direct; images straight to
+OCR) → cleaning (`cleaning_service.py`, conservative — whitespace/control-char
+normalization that preserves UTF-8 incl. Kannada) → **page-aware chunking**
+(LangChain `RecursiveCharacterTextSplitter` run per page, so a chunk never
+crosses a page boundary) → embeddings (`BAAI/bge-small-en-v1.5`, lazy-loaded
+and cached) → Chroma upsert. `POST /documents/search` is case-scoped
+retrieval infrastructure for Modules 5/6 (NOT Module 5 analysis). Both schemas
+accept `language: Literal['en','kn']` per the decisions log.
+
+**New backend endpoints**: `POST /cases/:caseId/documents/:documentId/process`
+(requeue for processing, 409 if already `processing`) and
+`GET /cases/:caseId/documents/:documentId/pages` (ordered page units). Upload
+now accepts a per-file `docTypes` JSON array aligned by index with
+`documents[]` (legacy single `docType` still works as a fallback).
+
+**Frontend**: Documents is now a real tab (`CaseDocumentsTab.jsx` + the
+per-file-docType `UploadDocuments.jsx` picker), with live status badges,
+page/chunk counts, download, soft-delete, and a Retry action on `failed`
+docs. The list auto-polls every 4 s while any doc is `pending/processing` and
+stops when everything settles. The Overview "+ Add Document" button now links
+to the tab.
+
+**Tesseract is a system dependency, not a pip package.** pytesseract shells out
+to a `tesseract` binary; the location is configurable via `TESSERACT_CMD`
+(`python-ai/app/core/config.py`). On this machine tesseract was absent — the
+AI service's OCR path fails documents with a clear error until it's installed
+(`sudo apt install -y tesseract-ocr`, plus `tesseract-ocr-kan` later for
+Kannada — the Kannada language code is `kan`, so the OCR language is selected
+with `OCR_LANG=kan` or `OCR_LANG=kan+eng` for mixed documents). Verifications
+used a portable tesseract extracted from Ubuntu .debs.
+
 ## What's real vs scaffolded right now
 
 **Real, end to end:** register/login/logout/refresh/profile-edit, dark mode,
@@ -288,12 +366,15 @@ soft-delete+undelete/archive/restore/status-change/pin), parties, editable
 notes, hearings (create/edit/soft-delete + atomic numbering + full 7-status
 lifecycle via the guided transition action + Case.nextHearingDate kept
 correct by recalculateNextHearingDate), case search/filter, event-log-backed
-timeline and activity feed.**
+timeline and activity feed, **document upload + full processing pipeline
+(OCR → extraction → page units → chunking → embeddings → ChromaDB) with
+status lifecycle, page/chunk counts, download, soft-delete, and a Documents
+tab + per-file-docType upload UI.**
 
 **Scaffolded, clearly labeled in-UI (not faked as working):**
 - Case-workspace chat/rich-cards — still only the `/app/cases/preview` sample screen; real cases use the (currently real, non-AI) Smart Case Folder tabs instead
 - Evidence, Witnesses, Applicable Laws, Judgments, AI Analysis, Courtroom Strategy, Reports — per-case tabs, generic `CaseComingSoonTab`
-- **Documents — backend is REAL (Module 4 Phase 1: model, `/cases/:caseId/documents` API, disk upload, soft-delete, download, `documentCount`); the frontend Documents tab and upload UI are still `CaseComingSoonTab` / disabled "+ Add Document" until Phase 2.** So the Overview's document count is now real while the tab remains a placeholder.
+- **Documents — fully REAL (Module 4 complete): backend model + API, disk upload, soft-delete, download, `documentCount`, the Phase 2 processing pipeline (OCR → extraction → page units → chunking → embeddings → ChromaDB) via the python-ai service, and the frontend Documents tab with per-file-docType upload, status badges, retry, and auto-polling.**
 - All 13 Legal Research Center tools and 6 of 7 Practice Management tools (Hearings has per-case functionality now; the rest are still placeholders) — generic `ComingSoonView`
 - Global search — captures and displays the query, doesn't hit a real index
 - Case/hearing Activity — real events from `CaseEvent`, not a full field-level audit log (see Module 3 section above)
@@ -328,10 +409,18 @@ timeline and activity feed.**
   on-disk layout stays off the wire. `docType` is free text. Uploaded files
   get server-generated random names with their real extension (never the
   user's `originalName`), so no user string reaches the filesystem. Soft
-  delete keeps the physical file; permanent removal is deferred. A single
-  `docType` per request applies to all files (per-file `docType` deferred to
-  the Phase 2 upload UI). Uploaded documents are still reachable on a
-  soft-deleted case (same as Hearings — `loadCase` doesn't filter `isDeleted`).
+  delete keeps the physical file; permanent removal is deferred. Uploaded
+  documents are still reachable on a soft-deleted case (same as Hearings —
+  `loadCase` doesn't filter `isDeleted`).
+- **Documents (Module 4 Phase 2)**: the pipeline is orchestrated by a backend
+  background worker (MongoDB-polled, atomic claims, crash recovery, no
+  Redis) and executed by the stateless python-ai service, preserving the
+  single-ownership boundary (Mongo = metadata, filesystem = files, Chroma =
+  vectors). Page-level text units persist in `DocumentPage` (page provenance);
+  chunks live only in ChromaDB and are re-embeddable from pages. Chunking is
+  page-aware — a chunk never crosses a page boundary. python-ai unreachable
+  requeues rather than fails a document. Tesseract is a system dependency
+  (not a pip package); its binary path is `TESSERACT_CMD`-configurable.
 - **Multer errors** are mapped in the centralized `errorMiddleware.js`
   (`MulterError` → clean `400`s), not handled per-route — the upload feature
   introduces no second error-handling pattern.
@@ -350,13 +439,24 @@ copy (capability card descriptions).
 - `UPLOADS_DIR` (optional, Module 4) — root directory for uploaded case
   documents; defaults to `<repo>/backend/uploads` when unset. Added to
   `backend/.env.example`.
+- `DOC_PIPELINE_POLL_INTERVAL_MS`, `DOC_PROCESSING_TIMEOUT_MS` (backend,
+  Module 4 Phase 2) — worker poll interval and crashed-job requeue threshold.
+  Added to `backend/.env.example`; read by `backend/src/config/env.js`
+  (`env.docPipeline.*`).
+- python-ai (Module 4 Phase 2): `EMBEDDING_MODEL`, `CHROMA_PERSIST_DIR`,
+  `CHROMA_COLLECTION`, `OCR_MIN_TEXT_CHARS`, `OCR_RASTER_DPI`, `TESSERACT_CMD`,
+  `OCR_LANG` (Tesseract language(s), e.g. `eng`, `kan`, or `kan+eng` — needs
+  the matching `tesseract-ocr-<code>` traineddata, `kan` included in
+  `tesseract-ocr-kan` on Ubuntu 24.04), `CHUNK_SIZE`, `CHUNK_OVERLAP`,
+  `BACKEND_SERVICE_URL` — added to `python-ai/.env.example`, read by
+  `python-ai/app/core/config.py`.
 
 ## Open follow-ups
 
 1. Full i18n coverage of `Profile.jsx` and remaining `Landing.jsx` copy — the Module 3 case-management pages are also English-only for now, same reasoning (kept moving on functional scope first, tracked here rather than silently skipped).
-2. **Module 4 Phase 2+** — the actual document pipeline on top of the now-real backend foundation: frontend Documents tab + upload UI (incl. per-file `docType` mapping), OCR → extraction → `extractedText`/`status` transitions, chunking → embeddings → vector store (ChromaDB), and per-case document counts/views in the UI. The Overview page's document count is already real via `GET /cases/:id`.
+2. **Module 4 is complete.** Remaining document-pipeline polish (all out of scope by design): a page-preview in the Documents tab (the `GET /:id/pages` endpoint already serves the data), physical-file deletion / Trash / restore UI (still `404` after soft-delete, file retained on disk), and the OCR "scanned PDF" path is verified but a scanned-PDF fixture should be exercised on a machine with tesseract installed via `apt`.
 3. Kannada legal-terminology review before real submission/demo use.
-4. `language` parameter in python-ai's Pydantic schemas (see decisions log above).
+4. `language` threading from the frontend into python-ai calls — the Phase 2 schemas accept `language: Literal['en','kn']` (default `en`) and the backend pipeline hardcodes `en` today; the frontend isn't wired yet. OCR language is now globally configurable via `OCR_LANG` (e.g. `kan` or `kan+eng`, requires `tesseract-ocr-kan`), but **per-document** language routing and a multilingual embedding model remain the natural next steps (the current `BAAI/bge-small-en-v1.5` model is English-only and does not meaningfully embed Kannada text).
 5. Full field-level audit log (who changed which field, old → new value) for the case Activity tab — `CaseEvent` logs *that* something changed and a human-readable title, but not a structured before/after diff for every field.
 6. Cross-case Hearings calendar (Practice Management sidebar) — per-case hearings are real; this aggregation view is not.
 7. Multi-user case assignment UI — `Case.assignedUsers` exists at the data layer and defaults to `[createdBy]`, but there's no picker to assign a case to a colleague yet (would need a "list org users" endpoint that doesn't exist).

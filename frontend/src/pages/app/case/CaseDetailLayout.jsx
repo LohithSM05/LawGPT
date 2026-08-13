@@ -21,6 +21,7 @@ const REAL_TABS = [
   { slug: 'overview', label: 'Overview', icon: LayoutDashboard },
   { slug: 'timeline', label: 'Timeline', icon: Clock },
   { slug: 'hearings', label: 'Hearings', icon: Gavel },
+  { slug: 'documents', label: 'Documents', icon: Paperclip },
   { slug: 'parties', label: 'Parties', icon: Users },
   { slug: 'notes', label: 'Notes', icon: StickyNote },
   { slug: 'activity', label: 'Activity', icon: Activity },
@@ -29,7 +30,6 @@ const REAL_TABS = [
 // Slug, label, icon, and which module builds it — rendered by the generic
 // CaseComingSoonTab so these don't need one file each.
 export const COMING_SOON_TABS = [
-  { slug: 'documents', label: 'Documents', icon: Paperclip, plannedModule: 4 },
   { slug: 'evidence', label: 'Evidence', icon: ShieldCheck, plannedModule: 4 },
   { slug: 'witnesses', label: 'Witnesses', icon: UserSearch, plannedModule: 4 },
   { slug: 'laws', label: 'Applicable Laws', icon: ScrollText, plannedModule: 5 },

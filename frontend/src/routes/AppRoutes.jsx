@@ -28,6 +28,7 @@ import HearingDetail from '../pages/app/case/HearingDetail';
 import CasePartiesTab from '../pages/app/case/CasePartiesTab';
 import CaseNotesTab from '../pages/app/case/CaseNotesTab';
 import CaseActivityTab from '../pages/app/case/CaseActivityTab';
+import CaseDocumentsTab from '../pages/app/case/CaseDocumentsTab';
 import CaseComingSoonTab from '../pages/app/case/CaseComingSoonTab';
 
 export default function AppRoutes() {
@@ -71,6 +72,7 @@ export default function AppRoutes() {
             <Route path="parties" element={<CasePartiesTab />} />
             <Route path="notes" element={<CaseNotesTab />} />
             <Route path="activity" element={<CaseActivityTab />} />
+            <Route path="documents" element={<CaseDocumentsTab />} />
             <Route path=":section" element={<CaseComingSoonTab />} />
           </Route>
 

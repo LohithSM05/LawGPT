@@ -6,7 +6,10 @@ const mongoose = require('mongoose');
  * edits, pin, case update, soft-delete) — logging those consistently is
  * what makes "what changed and when" actually answerable later, which is
  * the whole point of this model. DOCUMENT_UPLOADED / DOCUMENT_DELETED were
- * added with Module 4 Phase 1 (document upload pipeline foundation).
+ * added with Module 4 Phase 1 (document upload pipeline foundation);
+ * DOCUMENT_PROCESSING_STARTED / DOCUMENT_PROCESSED /
+ * DOCUMENT_PROCESSING_FAILED with Phase 2 (OCR → extraction → chunking →
+ * embeddings → vector store).
  * Deliberately NOT adding placeholder types for subsystems that don't exist
  * yet (EVIDENCE_ADDED, WITNESS_ADDED, AI_ANALYSIS_CREATED, etc.) — those
  * get added when their module lands.
@@ -29,6 +32,9 @@ const EVENT_TYPES = [
   'NOTE_DELETED',
   'DOCUMENT_UPLOADED',
   'DOCUMENT_DELETED',
+  'DOCUMENT_PROCESSING_STARTED',
+  'DOCUMENT_PROCESSED',
+  'DOCUMENT_PROCESSING_FAILED',
   'HEARING_CREATED',
   'HEARING_UPDATED',
   'HEARING_COMPLETED',

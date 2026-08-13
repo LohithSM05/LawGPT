@@ -19,5 +19,9 @@ router.get('/', documentController.listDocuments);
 router.get('/:documentId', documentController.getDocument);
 router.delete('/:documentId', documentController.deleteDocument);
 router.get('/:documentId/download', documentController.downloadDocument);
+// Phase 2: queue a document for (re)processing, and read its ordered
+// page-level text units.
+router.post('/:documentId/process', documentController.triggerProcess);
+router.get('/:documentId/pages', documentController.getDocumentPages);
 
 module.exports = router;

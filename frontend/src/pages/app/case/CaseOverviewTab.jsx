@@ -94,9 +94,11 @@ export default function CaseOverviewTab() {
             Add note
           </Link>
         </Button>
-        <Button size="sm" variant="outline" disabled title="Arrives with the document pipeline in Module 4">
-          <FileText className="mr-2 h-3.5 w-3.5" />
-          Add document
+        <Button size="sm" asChild variant="outline">
+          <Link to={`/app/case/${caseId}/documents`}>
+            <FileText className="mr-2 h-3.5 w-3.5" />
+            Add document
+          </Link>
         </Button>
         <Button size="sm" variant="outline" disabled title="Arrives with the document pipeline in Module 4">
           <ShieldCheck className="mr-2 h-3.5 w-3.5" />
