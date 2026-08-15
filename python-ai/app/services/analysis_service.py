@@ -83,23 +83,41 @@ def _build_prompt(
         for page in doc.pages:
             lines.append(f"(page {page.pageNumber}): {page.text}")
 
-    lines.append(
+        lines.append(
         "\nRespond with ONLY a JSON object (no markdown, no commentary) with exactly these keys:\n"
         "- \"summary\": { \"text\": <neutral case summary>, \"keyPoints\": [<3-6 short key points>] }\n"
         "- \"timeline\": [ { \"event\": <short event>, \"date\": <date as stated, or null>, "
-        "\"text\": <short supporting quote>, \"sourceDocument\": <#N>, \"pageNumber\": <page> } ] — "
-        "a chronology of facts/events stated in the documents; sourceDocument/pageNumber cite "
-        "the exact page each fact comes from, or null if unknown\n"
+        "\"text\": <short supporting text>, \"sourceDocument\": <#N>, \"pageNumber\": <page> } ] — "
+        "chronology of factual events. Use sourceDocument and pageNumber only when the "
+        "fact can be grounded in that document/page. Never invent a page number.\n"
         "- \"entities\": [ { \"type\": <one of person|organization|date|amount|place|vehicle|statute|other>, "
-        "\"name\": <as written>, \"mentions\": <count>, \"sourceDocument\": <#N>, \"pageNumber\": <page> } ]\n"
+        "\"name\": <as written>, \"mentions\": <count>, \"sourceDocument\": <#N>, "
+        "\"pageNumber\": <page> } ] — identify important entities. "
+        "If the same entity appears in multiple documents, treat it as one case-level entity "
+        "and use its most relevant source.\n"
         "- \"laws\": [ { \"code\": <IPC|BNS|BNSS|BSA|OTHER>, \"section\": <as stated>, "
         "\"label\": <short label>, \"description\": <short>, \"relevance\": <why it applies>, "
-        "\"sourceDocument\": <#N>, \"pageNumber\": <page> } ] — applicable statutes mentioned in the "
-        "documents; cite the page where each was mentioned\n"
-        "- \"documents\": [ { \"sourceDocument\": <#N>, \"summary\": <that document's summary>, "
-        "\"keyPoints\": [<short key points for that document>] } ] for every [Document #N] above\n"
-        f"\nWrite all narrative text (summaries, labels) in {_LANGUAGE_NAMES.get(language, 'English')}."
-    )
+        "\"sourceDocument\": <#N>, \"pageNumber\": <page> } ] — applicable statutes mentioned "
+        "or clearly relevant based strictly on the documents. Do not invent sections.\n"
+        "- \"documents\": [ { \"sourceDocument\": <#N>, \"summary\": <that document's own summary>, "
+        "\"keyPoints\": [<3-6 short key points specific to that document>] } ] — "
+        "IMPORTANT: You MUST provide exactly ONE entry for EVERY document above, even if "
+        "documents contain repeated or overlapping information. Each summary must describe "
+        "that particular document, not the entire case.\n"
+        "\nIMPORTANT RULES:\n"
+        "1. Analyze ALL supplied documents together.\n"
+        "2. Repeated information across documents must not be blindly duplicated in the "
+        "case-level timeline, entities, or laws.\n"
+        "3. Keep document-specific information in the documents array.\n"
+        "4. Never invent facts, dates, page numbers, people, organizations, or laws.\n"
+        "5. sourceDocument refers to the [Document #N] identifier above.\n"
+        "6. pageNumber must be one of the actual page numbers supplied for that document; "
+        "otherwise use null.\n"
+        "7. If two documents describe the same event, combine it at case level when appropriate "
+        "while retaining the relevant document-specific analysis.\n"
+        f"\nWrite all narrative text (summaries, labels, descriptions, relevance) in "
+        f"{_LANGUAGE_NAMES.get(language, 'English')}."
+    	)
     return "\n".join(lines)
 
 
@@ -182,30 +200,83 @@ def _normalize(raw: dict, documents: list[AnalysisDocumentInput], language: str,
         )
 
     laws: list[AnalysisLaw] = []
+
     for item in raw.get("laws") or []:
         law = _normalize_law(item, documents)
-        if law.section:
+
+        if not law.section:
+            continue
+
+        # Deduplicate identical law references at case level.
+        # Document-specific provenance is still retained in the first
+        # occurrence and the individual document analysis remains available.
+        duplicate = next(
+            (
+                existing
+                for existing in laws
+                if existing.code == law.code
+                and existing.section.lower().strip() == law.section.lower().strip()
+            ),
+            None,
+        )
+
+        if duplicate is None:
             laws.append(law)
 
-    # Per-document breakdown: summaries come from the LLM's per-document block;
-    # entities/laws are derived from the case-level lists by sourceDocumentId so
-    # provenance stays consistent between the two views.
-    by_id = {d.documentId: d for d in documents}
-    doc_results: list[AnalysisDocumentResult] = []
-    for raw_doc in raw.get("documents") or []:
-        doc = _resolve_document(documents, raw_doc.get("sourceDocument"))
-        if doc is None:
+    # Per-document breakdown.
+    # Gemini is asked to return one entry for every document. However, the
+    # backend must not depend on the model remembering this requirement.
+    # Therefore every supplied document gets a result here, even if Gemini
+    # accidentally omits an entry.
+    raw_documents = raw.get("documents") or []
+
+    raw_doc_by_number: dict[int, dict] = {}
+
+    for raw_doc in raw_documents:
+        try:
+            source_number = int(raw_doc.get("sourceDocument"))
+        except (TypeError, ValueError):
             continue
-        did = doc.documentId
+
+        if 1 <= source_number <= len(documents):
+            raw_doc_by_number[source_number] = raw_doc
+
+    doc_results: list[AnalysisDocumentResult] = []
+
+    for index, doc in enumerate(documents, start=1):
+        raw_doc = raw_doc_by_number.get(index, {})
+
+        # Only use the LLM's document-specific summary when it actually
+        # supplied one. Never fabricate a legal summary in the backend.
+        document_summary = str(
+            raw_doc.get("summary") or ""
+        ).strip()
+
+        document_key_points = [
+            str(k).strip()
+            for k in (raw_doc.get("keyPoints") or [])
+            if str(k).strip()
+        ]
+
+        document_entities = [
+            e for e in entities
+            if e.sourceDocumentId == doc.documentId
+        ]
+
+        document_laws = [
+            law for law in laws
+            if law.sourceDocumentId == doc.documentId
+        ]
+
         doc_results.append(
             AnalysisDocumentResult(
-                documentId=did,
+                documentId=doc.documentId,
                 documentName=doc.documentName,
                 docType=doc.docType,
-                summary=str(raw_doc.get("summary") or ""),
-                keyPoints=[str(k) for k in (raw_doc.get("keyPoints") or [])],
-                entities=[e for e in entities if e.sourceDocumentId == did],
-                laws=[l for l in laws if l.sourceDocumentId == did],
+                summary=document_summary,
+                keyPoints=document_key_points,
+                entities=document_entities,
+                laws=document_laws,
                 charCount=sum(len(p.text) for p in doc.pages),
             )
         )
@@ -221,6 +292,154 @@ def _normalize(raw: dict, documents: list[AnalysisDocumentInput], language: str,
         documents=doc_results,
     )
 
+def _fill_missing_document_analysis(
+    raw: dict,
+    documents: list[AnalysisDocumentInput],
+    language: str,
+) -> dict:
+    """
+    Fill missing per-document summaries/key points with focused Gemini calls.
+
+    The main case analysis remains authoritative for the case-level summary,
+    timeline, entities and laws. This fallback only asks Gemini for document-
+    specific analysis when the main response omitted it.
+    """
+    raw_documents = raw.get("documents") or []
+
+    existing_by_number: dict[int, dict] = {}
+
+    for item in raw_documents:
+        try:
+            source_number = int(item.get("sourceDocument"))
+        except (TypeError, ValueError):
+            continue
+
+        if 1 <= source_number <= len(documents):
+            existing_by_number[source_number] = item
+
+    for index, doc in enumerate(documents, start=1):
+        existing = existing_by_number.get(index, {})
+
+        existing_summary = str(existing.get("summary") or "").strip()
+        existing_key_points = [
+            str(point).strip()
+            for point in (existing.get("keyPoints") or [])
+            if str(point).strip()
+        ]
+
+        # Gemini already supplied useful document-level analysis.
+        if existing_summary and existing_key_points:
+            continue
+
+        page_text = "\n".join(
+            f"(page {page.pageNumber}): {page.text}"
+            for page in doc.pages
+        )
+
+        prompt = f"""
+You are a neutral legal document analyst.
+
+Analyze ONLY the following document.
+
+Document name: {doc.documentName}
+Document type: {doc.docType or "unknown"}
+
+Document text:
+{page_text}
+
+Return ONLY valid JSON with exactly these keys:
+
+{{
+  "sourceDocument": {index},
+  "summary": "A concise, neutral summary of this particular document.",
+  "keyPoints": [
+    "3-6 factual key points specific to this document."
+  ]
+}}
+
+Rules:
+1. Describe ONLY what this document states.
+2. Do not summarize the entire case.
+3. Do not invent facts, dates, people, amounts, laws, or events.
+4. Keep the summary concise and factual.
+5. Write all narrative text in {"Kannada" if language == "kn" else "English"}.
+6. The sourceDocument value MUST be {index}.
+"""
+
+        try:
+            logger.info(
+                "Generating focused per-document analysis for document %s: %s",
+                index,
+                doc.documentName,
+            )
+
+            fallback_raw = generate_json(
+                prompt,
+                language=language,
+                documents_hint=[_hint(doc)],
+            )
+
+            fallback_documents = fallback_raw.get("documents") or []
+
+            fallback_item = None
+
+            # The focused fallback prompt returns one document object
+            # directly, not inside a "documents" array.
+            if (
+                isinstance(fallback_raw, dict)
+                and (
+                    fallback_raw.get("summary")
+                    or fallback_raw.get("keyPoints")
+                )
+            ):
+                fallback_item = fallback_raw
+            else:
+                fallback_documents = fallback_raw.get("documents") or []
+                fallback_item = None
+
+                for item in fallback_documents:
+                    try:
+                        source_number = int(item.get("sourceDocument"))
+                    except (TypeError, ValueError):
+                        continue
+
+                    if source_number == index:
+                        fallback_item = item
+                        break
+
+                if fallback_item is None and fallback_documents:
+                    fallback_item = fallback_documents[0]
+
+            if fallback_item:
+                existing_by_number[index] = {
+                    "sourceDocument": index,
+                    "summary": str(
+                        fallback_item.get("summary") or ""
+                    ).strip(),
+                    "keyPoints": [
+                        str(point).strip()
+                        for point in (fallback_item.get("keyPoints") or [])
+                        if str(point).strip()
+                    ],
+                }
+
+        except Exception as exc:
+            # Do not fail the entire case analysis just because a focused
+            # document-level fallback failed.
+            logger.warning(
+                "Per-document analysis fallback failed for document %s (%s): %s",
+                index,
+                doc.documentName,
+                exc,
+            )
+
+    raw["documents"] = [
+        existing_by_number[index]
+        for index in range(1, len(documents) + 1)
+        if index in existing_by_number
+    ]
+
+    return raw
 
 def analyze_case(case_id: str, language: str, truncated: bool, documents: list[AnalysisDocumentInput]) -> dict:
     """Run one case analysis.
@@ -253,5 +472,21 @@ def analyze_case(case_id: str, language: str, truncated: bool, documents: list[A
     retrieval_note = rag_service.format_retrieved_evidence(excerpts, doc_index)
     prompt = _build_prompt(documents, language, truncated, retrieval_note)
 
-    raw = generate_json(prompt, language=language, documents_hint=[_hint(d) for d in documents])
-    return _normalize(raw, documents, language, retrieval_used).model_dump()
+    raw = generate_json(
+        prompt,
+        language=language,
+        documents_hint=[_hint(d) for d in documents],
+    )
+
+    raw = _fill_missing_document_analysis(
+        raw,
+        documents,
+        language,
+    )
+
+    return _normalize(
+        raw,
+        documents,
+        language,
+        retrieval_used,
+    ).model_dump()
