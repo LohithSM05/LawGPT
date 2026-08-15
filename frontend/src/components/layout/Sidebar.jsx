@@ -81,17 +81,27 @@ export default function Sidebar() {
       </NavLink>
 
       <div className="flex-1 space-y-1 overflow-y-auto px-2 pb-4">
-        <SectionHeading icon={Briefcase} label={t('sections.caseWorkspace')} collapsed={isCollapsed} />
-        {caseStatusNav.map((item) => (
-          <NavItem
-            key={item.status}
-            to={`/app/cases/${item.status}`}
-            icon={item.icon}
-            label={t(item.labelKey)}
-            collapsed={isCollapsed}
-            onClick={closeMobile}
-          />
-        ))}
+        <SectionHeading
+  icon={Briefcase}
+  label={t('sections.caseWorkspace')}
+  collapsed={isCollapsed}
+/>
+
+{caseStatusNav
+  .filter((item) =>
+    ['ongoing', 'closed', 'archived', 'recent', 'pinned'].includes(item.status)
+  )
+  .map((item) => (
+    <NavItem
+      key={item.status}
+      to={`/app/cases/${item.status}`}
+      icon={item.icon}
+      label={t(item.labelKey)}
+      collapsed={isCollapsed}
+      onClick={closeMobile}
+    />
+  ))}
+      
 
         <div className="my-2 border-t border-border" />
 

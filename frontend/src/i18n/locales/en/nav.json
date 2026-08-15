@@ -9,11 +9,13 @@
     "ongoing": "Ongoing Cases",
     "won": "Won Cases",
     "lost": "Lost Cases",
+    "transferred": "Transferred Cases",
+    "other": "Other",
     "closed": "Closed Cases",
     "archived": "Archived Cases",
     "recent": "Recent Cases",
     "pinned": "Pinned Cases"
-  },
+   },
   "research": {
     "judgeResearch": "Judge Research Panel",
     "constitution": "Constitution of India",

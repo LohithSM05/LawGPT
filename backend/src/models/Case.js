@@ -10,7 +10,7 @@ const mongoose = require('mongoose');
  * means restore is just isArchived:false, and any status can be archived
  * without losing its outcome. See PROJECT_MEMORY.md decisions log.
  */
-const CASE_STATUSES = ['ongoing', 'won', 'lost', 'closed'];
+const CASE_STATUSES = ['ongoing', 'won', 'lost', 'transferred', 'closed'];
 const CASE_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
 
 // caseType and party.role are intentionally free-text (see below), not

@@ -16,7 +16,9 @@ function buildParams(status, { search, caseType, priority }) {
   const params = { limit: 50 };
   if (status === 'archived') params.isArchived = 'true';
   else if (status === 'pinned') params.isPinned = 'true';
-  else if (['ongoing', 'won', 'lost', 'closed'].includes(status)) params.status = status;
+  else if (['ongoing', 'won', 'lost', 'transferred', 'closed'].includes(status)) {
+  params.status = status;
+}
   // 'recent' → no extra filter, relies on the default -updatedAt sort
 
   if (search) params.search = search;
@@ -63,7 +65,12 @@ export default function CaseListView() {
   const { t } = useTranslation('nav');
   const current = caseStatusNav.find((c) => c.status === status);
   const label = current ? t(current.labelKey) : status;
-
+  const closedCaseOptions = [
+  { status: 'won', labelKey: 'cases.won' },
+  { status: 'lost', labelKey: 'cases.lost' },
+  { status: 'transferred', labelKey: 'cases.transferred' },
+  { status: 'closed', labelKey: 'cases.other' },
+  ];
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -101,6 +108,33 @@ export default function CaseListView() {
           <Link to="/app/cases/new">New case</Link>
         </Button>
       </div>
+      {['closed', 'won', 'lost', 'transferred'].includes(status) && (
+  <div className="mb-6 rounded-lg border border-border bg-card p-3">
+    <div className="flex flex-wrap gap-2">
+      {closedCaseOptions.map((option) => (
+        <Button
+          key={option.status}
+          size="sm"
+          variant={status === option.status ? 'default' : 'outline'}
+          asChild
+        >
+          <Link to={`/app/cases/${option.status}`}>
+            {t(option.labelKey)}
+          </Link>
+        </Button>
+      ))}
+    </div>
+
+    <p className="mt-3 text-xs text-muted-foreground">
+      {status === 'closed'
+        ? 'Select a closed-case category.'
+        : `Showing: ${t(
+            closedCaseOptions.find((option) => option.status === status)?.labelKey ||
+              'cases.other'
+          )}`}
+    </p>
+  </div>
+)}
 
       <div className="mb-6 flex flex-wrap gap-2">
         <div className="relative min-w-[200px] flex-1">

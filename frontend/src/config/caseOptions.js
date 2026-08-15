@@ -68,7 +68,8 @@ export const CASE_STATUSES = [
   { value: 'ongoing', label: 'Ongoing' },
   { value: 'won', label: 'Won' },
   { value: 'lost', label: 'Lost' },
-  { value: 'closed', label: 'Closed' },
+  { value: 'transferred', label: 'Transferred' },
+  { value: 'closed', label: 'Other' },
 ];
 
 export const CASE_PRIORITIES = [
@@ -123,5 +124,6 @@ export const STATUS_BADGE_VARIANT = {
   ongoing: 'secondary',
   won: 'default',
   lost: 'outline',
+  transferred: 'accent',
   closed: 'outline',
 };
