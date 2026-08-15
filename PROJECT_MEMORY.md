@@ -58,6 +58,78 @@ statuses) and `frontend/src/config/toolsRegistry.js` (research + practice
 tools). Adding a sidebar item is a one-line config change, not a new
 component or route file.
 
+### Case Workspace navigation update — August 2026
+
+The Case Workspace sidebar was refined after Module 5. The top-level sidebar
+now contains only:
+
+```text
+CASE WORKSPACE
+
+Ongoing Cases
+Closed Cases
+Archived Cases
+Recent Cases
+Pinned Cases
+```
+
+`Won Cases`, `Lost Cases`, `Transferred Cases`, and `Other` are intentionally
+not permanent sidebar children. They are category buttons on the **Closed
+Cases** main page:
+
+```text
+Closed Cases
+
+[ Won Cases ] [ Lost Cases ] [ Transferred Cases ] [ Other ]
+```
+
+Selecting a category navigates to a real status-filtered case list and visually
+highlights the selected category. The routes are:
+
+- `/app/cases/won` → Won Cases
+- `/app/cases/lost` → Lost Cases
+- `/app/cases/transferred` → Transferred Cases
+- `/app/cases/closed` → Other
+
+The `closed` backend status is therefore presented to users as the **Other**
+closed-case category. This avoids creating an unnecessary second "other" status.
+
+Clicking any case card continues to use the existing case workspace route:
+`/app/case/:caseId/overview`. No separate case-detail implementation was added.
+
+Current UI/status mapping:
+
+- `ongoing` → Ongoing Cases
+- `won` → Closed Cases → Won Cases
+- `lost` → Closed Cases → Lost Cases
+- `transferred` → Closed Cases → Transferred Cases
+- `closed` → Closed Cases → Other
+- `isArchived: true` → Archived Cases, independently of status
+- `recent` → Recent Cases view
+- `pinned` → Pinned Cases view
+
+Implementation files changed for this update:
+
+- `backend/src/models/Case.js`
+- `frontend/src/components/layout/Sidebar.jsx`
+- `frontend/src/config/caseOptions.js`
+- `frontend/src/config/navigation.js`
+- `frontend/src/i18n/locales/en/nav.json`
+- `frontend/src/pages/app/CaseListView.jsx`
+
+The frontend production build was run successfully after the update.
+
+Git checkpoint for this update:
+
+- `733ba22` — `Update case workspace navigation and statuses`
+
+The earlier Module 5 checkpoint remains:
+
+- `c9f06cd` — `Complete Module 5 AI case analysis`
+
+The latest changes have been pushed to the project's GitHub `main` branch and
+should be pulled before beginning Module 6.
+
 ## Case Management (Module 3) — final implementation
 
 **Core model**: `Case` (`backend/src/models/Case.js`) is the central entity —
@@ -69,7 +141,7 @@ free-text strings (curated suggestions via `<datalist>` in
 are a one-line config edit, no migration.
 
 **Three independent boolean/status dimensions on `Case`** — don't conflate them:
-- `status`: `ongoing` / `won` / `lost` / `closed` — the 4 real case outcomes.
+- `status`: `ongoing` / `won` / `lost` / `transferred` / `closed` — the 5 case outcomes currently supported by the application.
 - `isArchived`: orthogonal flag, user-driven via `PATCH /:id/archive` /
   `/:id/restore`. A case can be archived at any status.
 - `isDeleted` (+ `deletedAt`): soft-delete flag, set via `DELETE /:id`,
@@ -494,6 +566,14 @@ and real AI Analysis + Applicable Laws case tabs).**
   page-aware — a chunk never crosses a page boundary. python-ai unreachable
   requeues rather than fails a document. Tesseract is a system dependency
   (not a pip package); its binary path is `TESSERACT_CMD`-configurable.
+- **Case lifecycle/status update (August 2026)**: `transferred` is a real
+  `Case.status` value. The backend enum is
+  `ongoing | won | lost | transferred | closed`; `isArchived` remains an
+  orthogonal boolean and is not a status value. In the UI, `closed` is presented
+  as the `Other` category under Closed Cases.
+- **Closed Cases navigation (August 2026)**: the sidebar contains only the
+  top-level case workspace views. Won/Lost/Transferred/Other are selected from
+  the Closed Cases page and use the corresponding status-filtered list routes.
 - **Analysis (Module 5 Phase 3)**: synchronous by design, but the
   `CaseAnalysis.status` field uses the same pending/processing/completed/failed
   lifecycle as `Document` so a later module can switch to a background worker
@@ -546,6 +626,114 @@ copy (capability card descriptions).
   `python-ai/.env.example`, read by `python-ai/app/core/config.py`
   (`settings.llm_provider`, `settings.gemini_model`,
   `settings.analysis_use_retrieval`, `settings.analysis_top_k`).
+
+## Developer handoff — ready for Module 6
+
+This is the current stable handoff point.
+
+### Completed before Module 6
+
+- Module 1 — Architecture & scaffolding
+- Module 2 — Authentication
+- Architecture update — sidebar/topbar shell, i18n, IA restructuring
+- Module 3 — Case Management + Smart Case Folder + Hearing Management
+- Module 4 — Document upload and processing pipeline
+- Module 5 Phase 3 — AI legal-document case analysis
+- Case Workspace navigation/status UX update described above
+
+### Important Module 5 implementation state
+
+AI case analysis is real end-to-end:
+
+```text
+Frontend
+  → backend POST /api/cases/:caseId/analysis
+  → backend builds payload from authoritative DocumentPage units
+  → python-ai POST /analysis/case
+  → Gemini or deterministic stub
+  → normalized structured result
+  → CaseAnalysis persisted in MongoDB
+  → AI Analysis + Applicable Laws tabs
+```
+
+The Module 5 analysis layer includes:
+
+- case summary and key points
+- document-derived timeline
+- entities
+- applicable laws
+- curated IPC ↔ BNS equivalents
+- strict document/page provenance
+- per-document analysis
+- Kannada detection and Kannada narrative output
+- English-only Chroma retrieval bypass when Kannada is present
+- synchronous `pending → processing → completed | failed` lifecycle
+- AI analysis CaseEvents
+- Gemini fallback/automatic model selection and `LLM_PROVIDER=gemini|stub`
+
+### Important Module 4 boundary
+
+Do not redesign or bypass the existing Module 4 ownership boundary:
+
+- MongoDB = authoritative metadata/page text
+- backend filesystem = uploaded files
+- ChromaDB = retrieval/vector layer
+- python-ai = stateless processing/AI service
+
+Chunks are re-embeddable from `DocumentPage`; python-ai does not write MongoDB.
+
+### Current service layout
+
+```text
+~/LawGPT/
+├── backend/       Express + MongoDB API       :5000
+├── python-ai/     FastAPI + ChromaDB + Gemini :8000
+├── frontend/      React + Vite + Tailwind     :5173
+├── docs/
+├── PROJECT_MEMORY.md
+└── README.md
+```
+
+### First steps for another developer
+
+```bash
+cd ~/LawGPT
+git checkout main
+git pull origin main
+git status
+```
+
+Then read:
+
+```text
+PROJECT_MEMORY.md
+docs/ARCHITECTURE.md
+docs/MODULE3_CASES.md
+docs/MODULE4_DOCUMENTS.md
+docs/MODULE5_ANALYSIS.md
+```
+
+Before starting Module 6, verify the working tree is clean and the latest
+`main` branch contains the Module 5 checkpoint plus the Case Workspace update.
+
+Recommended local service checks:
+
+```bash
+curl -s http://localhost:5000/health
+curl -s http://localhost:8000/health
+curl -s http://localhost:5173
+```
+
+Module 6 is the next planned module:
+
+**Similar judgments (RAG)** — also backing Judge Research, Constitution,
+Supreme/High Court, Judgment Search, Case Comparison, and Legal Dictionary.
+
+Do not treat the remaining scaffolded modules as completed just because their
+routes exist. Check the status tables and "What's real vs scaffolded" section
+before extending them.
+
+---
 
 ## Open follow-ups
 
