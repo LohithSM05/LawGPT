@@ -32,9 +32,9 @@ import {
 export const researchTools = [
   { slug: 'judge-research', labelKey: 'research.judgeResearch', icon: Gavel, plannedModule: 6 },
   { slug: 'constitution', labelKey: 'research.constitution', icon: BookOpen, plannedModule: 6 },
-  { slug: 'bns', labelKey: 'research.bns', icon: FileText, plannedModule: 5 },
-  { slug: 'bnss', labelKey: 'research.bnss', icon: Shield, plannedModule: 5 },
-  { slug: 'bsa', labelKey: 'research.bsa', icon: FileSearch, plannedModule: 5 },
+  { slug: 'bns', labelKey: 'research.bns', icon: FileText, plannedModule: 5, built: true },
+  { slug: 'bnss', labelKey: 'research.bnss', icon: Shield, plannedModule: 5, built: true },
+  { slug: 'bsa', labelKey: 'research.bsa', icon: FileSearch, plannedModule: 5, built: true },
   { slug: 'supreme-court', labelKey: 'research.supremeCourt', icon: Landmark, plannedModule: 6 },
   { slug: 'high-court', labelKey: 'research.highCourt', icon: Building2, plannedModule: 6 },
   { slug: 'judgment-search', labelKey: 'research.judgmentSearch', icon: Search, plannedModule: 6 },

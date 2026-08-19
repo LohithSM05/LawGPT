@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import AppShell from '../components/layout/AppShell';
@@ -19,6 +20,12 @@ import CaseWorkspacePreview from '../pages/app/CaseWorkspacePreview';
 import SearchResults from '../pages/app/SearchResults';
 import ComingSoonView from '../pages/app/ComingSoonView';
 import { researchTools, practiceTools } from '../config/toolsRegistry';
+
+// Lazy-loaded so the ~1.3 MB bundled statute data only loads when a statute
+// page is first opened, keeping the main app bundle lean.
+const StatuteReferencePage = lazy(() =>
+  import('../pages/app/research/StatuteReferencePage')
+);
 
 import CaseDetailLayout from '../pages/app/case/CaseDetailLayout';
 import CaseOverviewTab from '../pages/app/case/CaseOverviewTab';
@@ -79,6 +86,34 @@ export default function AppRoutes() {
             <Route path="laws" element={<CaseLawsTab />} />
             <Route path=":section" element={<CaseComingSoonTab />} />
           </Route>
+
+          {/* The three statute reference pages are built — their static paths
+              are ranked above the generic /research/:slug catch-all below.
+              StatueReferencePage keys off the slug to load BNS/BNSS/BSA data. */}
+          <Route
+            path="research/bns"
+            element={
+              <Suspense fallback={<div className="container py-12 text-center text-sm text-muted-foreground">Loading statute…</div>}>
+                <StatuteReferencePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="research/bnss"
+            element={
+              <Suspense fallback={<div className="container py-12 text-center text-sm text-muted-foreground">Loading statute…</div>}>
+                <StatuteReferencePage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="research/bsa"
+            element={
+              <Suspense fallback={<div className="container py-12 text-center text-sm text-muted-foreground">Loading statute…</div>}>
+                <StatuteReferencePage />
+              </Suspense>
+            }
+          />
 
           <Route path="research/:slug" element={<ComingSoonView registry={researchTools} />} />
           <Route path="practice/:slug" element={<ComingSoonView registry={practiceTools} />} />

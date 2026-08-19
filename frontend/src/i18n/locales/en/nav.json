@@ -51,5 +51,16 @@
   "comingSoon": {
     "badge": "Planned — Module {{module}}",
     "backToWorkspace": "Back to workspace"
+  },
+  "statute": {
+    "searchPlaceholder": "Search by section number, keyword or phrase…",
+    "sections": "sections",
+    "chapters": "Chapters",
+    "noResults": "No sections match your search. Try a section number or a keyword.",
+    "backToList": "Back to section list",
+    "punishment": "Punishment",
+    "punished": "Penal",
+    "relatedSections": "Related sections",
+    "disclaimer": "Source: verbatim text from the official India Code PDFs of the Bharatiya Nyaya Sanhita (Act 45 of 2023), Bharatiya Nagarik Suraksha Sanhita (Act 46 of 2023) and Bharatiya Sakshya Adhiniyam (Act 47 of 2023). For authoritative reference only — always verify against the official gazette text. "
   }
 }
