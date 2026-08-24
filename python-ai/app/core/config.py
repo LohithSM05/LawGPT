@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # stub path is what acceptance tests exercise.
     llm_provider: str = "gemini"
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-1.5-flash"
+    gemini_model: str = ""
 
     # Analysis retrieval knob (English-only grounding). The embedding model
     # (BAAI/bge-small-en-v1.5) is English-oriented, so retrieval is ONLY used

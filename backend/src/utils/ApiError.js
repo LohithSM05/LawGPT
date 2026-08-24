@@ -40,6 +40,9 @@ class ApiError extends Error {
   static internal(message = 'Something went wrong') {
     return new ApiError(500, message);
   }
+  static badGateway(message = 'Bad gateway') {
+    return new ApiError(502, message);
+  }
 }
 
 module.exports = ApiError;
